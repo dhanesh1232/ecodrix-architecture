@@ -1,457 +1,687 @@
 # ECODrIx — Implementation Details
-## Schemas, Code Patterns, Screen Designs, Integration Examples
 
-This file contains the detailed implementation reference for the architecture
-defined in `KIRO_AGENT_PROMPT.md`. Use that file for the overview and this
-file for the code-level details.
+> Code-level reference. Patterns, snippets, and file paths an engineer needs to ship a feature
+> without reading the whole codebase. Pair with `KIRO_AGENT_PROMPT.md` (mental model) and
+> `prd/05-SCHEMA.md` (table reference).
 
 ---
 
-## 1. DATABASE SCHEMAS (Drizzle ORM — PostgreSQL)
+## 1. Tenant Resolution
 
-### Platform Tables (`ecodrix_*`)
+The single tenant boundary on every API request. Lives at `server/src/middleware/saasAuth.ts`
+today; being rewritten as `tenantResolver` per `platform-completion-end-to-end/`.
 
-```typescript
-// server/src/shared/db/schema/platform.ts
-import { pgTable, uuid, text, boolean, timestamp, integer, jsonb, serial } from "drizzle-orm/pg-core";
+```ts
+// server/src/middleware/tenantResolver.ts
+import { eq, and } from "drizzle-orm";
+import { ecodrix_organizations, ecodrix_members } from "@/shared/db/schema";
 
-export const ecodrix_organizations = pgTable("ecodrix_organizations", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name").notNull(),
-  slug: text("slug").unique().notNull(),
-  clientCode: text("client_code").unique().notNull(),
-  apiKey: text("api_key").unique(),
-  status: text("status").default("active"),
-  acquisitionChannel: text("acquisition_channel").default("direct"),
-  agencyId: uuid("agency_id"),
-  setupFee: integer("setup_fee"),
-  planId: uuid("plan_id").references(() => ecodrix_plans.id),
-  subscriptionStatus: text("subscription_status").default("free"),
-  erixEnabled: boolean("erix_enabled").default(true),
-  laieEnabled: boolean("laie_enabled").default(false),
-  infraEnabled: boolean("infra_enabled").default(false),
-  dataMode: text("data_mode").default("platform"),
-  externalDbType: text("external_db_type"),
-  externalDbUri: text("external_db_uri"),
-  syncEnabled: boolean("sync_enabled").default(false),
-  syncDirection: text("sync_direction"),
-  whatsappEnabled: boolean("whatsapp_enabled").default(false),
-  whatsappPhone: text("whatsapp_phone"),
-  whatsappStatus: text("whatsapp_status").default("disconnected"),
-  aiAgentEnabled: boolean("ai_agent_enabled").default(false),
-  aiAgentPrompt: text("ai_agent_prompt"),
-  aiAutoReply: boolean("ai_auto_reply").default(false),
-  isAgency: boolean("is_agency").default(false),
-  brandConfig: jsonb("brand_config").default("{}"),
-  secrets: jsonb("secrets").default("{}"),
-  industry: text("industry"),
-  website: text("website"),
-  country: text("country").default("IN"),
-  teamSize: text("team_size"),
-  logoUrl: text("logo_url"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
+export async function tenantResolver(req, res, next) {
+  let org;
 
-export const ecodrix_users = pgTable("ecodrix_users", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  email: text("email").unique().notNull(),
-  passwordHash: text("password_hash"),
-  fullName: text("full_name").notNull(),
-  avatarUrl: text("avatar_url"),
-  emailVerified: boolean("email_verified").default(false),
-  phone: text("phone"),
-  timezone: text("timezone").default("Asia/Kolkata"),
-  lastLoginAt: timestamp("last_login_at"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
+  // Path 1 — SDK / direct API
+  const apiKey = req.headers["x-api-key"] ?? req.headers["x-erix-api-key"];
+  const clientCode =
+    req.headers["x-client-code"] ?? req.headers["x-erix-client-code"];
+  if (apiKey && clientCode) {
+    [org] = await db
+      .select()
+      .from(ecodrix_organizations)
+      .where(
+        and(
+          eq(ecodrix_organizations.apiKey, apiKey),
+          eq(ecodrix_organizations.clientCode, clientCode),
+        ),
+      )
+      .limit(1);
+  }
 
-export const ecodrix_members = pgTable("ecodrix_members", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id").references(() => ecodrix_organizations.id).notNull(),
-  userId: uuid("user_id").references(() => ecodrix_users.id).notNull(),
-  role: text("role").default("agent"),
-  erixAccess: boolean("erix_access").default(true),
-  laieAccess: boolean("laie_access").default(true),
-  invitedBy: uuid("invited_by"),
-  joinedAt: timestamp("joined_at"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
+  // Path 2 — NextAuth session (saas dashboard)
+  else if (req.session?.user?.id) {
+    const [member] = await db
+      .select({ orgId: ecodrix_members.orgId })
+      .from(ecodrix_members)
+      .where(eq(ecodrix_members.userId, req.session.user.id))
+      .limit(1);
+    if (member) {
+      [org] = await db
+        .select()
+        .from(ecodrix_organizations)
+        .where(eq(ecodrix_organizations.id, member.orgId))
+        .limit(1);
+    }
+  }
 
-export const ecodrix_plans = pgTable("ecodrix_plans", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name").notNull(),
-  slug: text("slug").unique().notNull(),
-  erixEnabled: boolean("erix_enabled").default(false),
-  laieEnabled: boolean("laie_enabled").default(false),
-  infraEnabled: boolean("infra_enabled").default(false),
-  priceMonthlyUsd: integer("price_monthly_usd").default(0),
-  priceYearlyUsd: integer("price_yearly_usd").default(0),
-  laieAuditsPerMonth: integer("laie_audits_per_month").default(0),
-  erixContactsLimit: integer("erix_contacts_limit").default(100),
-  erixAgentsLimit: integer("erix_agents_limit").default(1),
-  features: jsonb("features").default("{}"),
-  isActive: boolean("is_active").default(true),
-});
+  if (!org) return res.status(401).json({ error: "TENANT_NOT_FOUND" });
+  if (org.status !== "active")
+    return res.status(403).json({ error: "ORG_SUSPENDED" });
 
-export const ecodrix_subscriptions = pgTable("ecodrix_subscriptions", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id").references(() => ecodrix_organizations.id).notNull(),
-  planId: uuid("plan_id").references(() => ecodrix_plans.id).notNull(),
-  status: text("status").default("active"),
-  paymentProvider: text("payment_provider"),
-  providerSubscriptionId: text("provider_subscription_id"),
-  currentPeriodStart: timestamp("current_period_start"),
-  currentPeriodEnd: timestamp("current_period_end"),
-  cancelledAt: timestamp("cancelled_at"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-export const ecodrix_waitlist = pgTable("ecodrix_waitlist", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  email: text("email").unique().notNull(),
-  name: text("name"),
-  phone: text("phone"),
-  productInterest: text("product_interest").array(),
-  source: text("source"),
-  position: serial("position"),
-  inviteSentAt: timestamp("invite_sent_at"),
-  convertedAt: timestamp("converted_at"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-export const ecodrix_api_tokens = pgTable("ecodrix_api_tokens", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id").references(() => ecodrix_organizations.id).notNull(),
-  service: text("service").notNull(),
-  name: text("name").notNull(),
-  keyPrefix: text("key_prefix").notNull(),
-  keyHash: text("key_hash").unique().notNull(),
-  scopes: text("scopes").array(),
-  lastUsedAt: timestamp("last_used_at"),
-  revokedAt: timestamp("revoked_at"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-export const ecodrix_audit_logs = pgTable("ecodrix_audit_logs", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id").references(() => ecodrix_organizations.id).notNull(),
-  actorId: uuid("actor_id"),
-  action: text("action").notNull(),
-  resourceType: text("resource_type"),
-  resourceId: text("resource_id"),
-  metadata: jsonb("metadata").default("{}"),
-  ipAddress: text("ip_address"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
+  req.org = org; // canonical
+  req.orgId = org.id;
+  next();
+}
 ```
 
-### CRM Tables (`erix_*`)
+Admin routes still use `verifyCoreToken` (env `CORE_API_KEY`) for the operator side, then
+attach the _target_ org via `tenantResolver` for tenant-scoped operations.
 
-```typescript
-// server/src/shared/db/schema/erix.ts
+---
 
-export const erix_leads = pgTable("erix_leads", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id").references(() => ecodrix_organizations.id).notNull(),
-  phone: text("phone"),
-  firstName: text("first_name"),
-  lastName: text("last_name"),
-  email: text("email"),
-  company: text("company"),
-  stage: text("stage").default("new"),
-  pipelineId: uuid("pipeline_id"),
-  stageId: uuid("stage_id"),
-  assignedTo: uuid("assigned_to"),
-  source: text("source").default("manual"),
-  score: integer("score").default(0),
-  value: integer("value"),
-  tags: text("tags").array(),
-  metadata: jsonb("metadata").default("{}"),
-  customFields: jsonb("custom_fields").default("{}"),
-  lastContactedAt: timestamp("last_contacted_at"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
+## 2. ErixAdapter Pattern (Multi-Source DB Layer)
 
-export const erix_conversations = pgTable("erix_conversations", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id").references(() => ecodrix_organizations.id).notNull(),
-  leadId: uuid("lead_id").references(() => erix_leads.id),
-  phone: text("phone").notNull(),
-  channel: text("channel").default("whatsapp"),
-  status: text("status").default("open"),
-  unreadCount: integer("unread_count").default(0),
-  lastMessageAt: timestamp("last_message_at"),
-  assignedTo: uuid("assigned_to"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
+Every CRM operation goes through one interface, regardless of where the tenant's data lives.
 
-export const erix_messages = pgTable("erix_messages", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id").references(() => ecodrix_organizations.id).notNull(),
-  conversationId: uuid("conversation_id").references(() => erix_conversations.id).notNull(),
-  direction: text("direction").notNull(),
-  contentType: text("content_type").default("text"),
-  body: text("body"),
-  mediaUrl: text("media_url"),
-  waMessageId: text("wa_message_id"),
-  status: text("status").default("sent"),
-  sentBy: uuid("sent_by"),
-  metadata: jsonb("metadata").default("{}"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
+```ts
+// server/src/lib/erix-adapter/types.ts
+export interface ErixAdapter {
+  leads: {
+    create(orgId: string, input: CreateLeadInput): Promise<Lead>;
+    update(
+      orgId: string,
+      leadId: string,
+      patch: UpdateLeadInput,
+    ): Promise<Lead>;
+    findById(orgId: string, leadId: string): Promise<Lead | null>;
+    findByPhone(orgId: string, phone: string): Promise<Lead | null>;
+    list(
+      orgId: string,
+      query: ListLeadsQuery,
+    ): Promise<{ items: Lead[]; total: number }>;
+    moveStage(orgId: string, leadId: string, stageId: string): Promise<Lead>;
+    /* ... */
+  };
+  pipelines: {
+    /* ... */
+  };
+  conversations: {
+    /* ... */
+  };
+  messages: {
+    /* ... */
+  };
+  templates: {
+    /* ... */
+  };
+  broadcasts: {
+    /* ... */
+  };
+  automationRules: {
+    /* ... */
+  };
+  sequenceEnrollments: {
+    /* ... */
+  };
+  meetings: {
+    /* ... */
+  };
+  notifications: {
+    /* ... */
+  };
+  segments: {
+    /* ... */
+  };
+  scoring: {
+    /* ... */
+  };
+}
+```
 
-export const erix_templates = pgTable("erix_templates", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id").references(() => ecodrix_organizations.id).notNull(),
-  name: text("name").notNull(),
-  category: text("category").notNull(),
-  language: text("language").default("en"),
-  body: text("body").notNull(),
-  header: text("header"),
-  footer: text("footer"),
-  variables: text("variables").array(),
-  status: text("status").default("pending"),
-  waTemplateId: text("wa_template_id"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
+```ts
+// server/src/lib/erix-adapter/factory.ts
+const cache = new Map<string, { adapter: ErixAdapter; expiresAt: number }>();
+const TTL_MS = 60_000;
 
-export const erix_broadcasts = pgTable("erix_broadcasts", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id").references(() => ecodrix_organizations.id).notNull(),
-  name: text("name").notNull(),
-  templateId: uuid("template_id").references(() => erix_templates.id),
-  recipientFilter: jsonb("recipient_filter").default("{}"),
-  totalRecipients: integer("total_recipients").default(0),
-  sentCount: integer("sent_count").default(0),
-  deliveredCount: integer("delivered_count").default(0),
-  readCount: integer("read_count").default(0),
-  status: text("status").default("draft"),
-  scheduledAt: timestamp("scheduled_at"),
-  completedAt: timestamp("completed_at"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
+export async function getErixAdapter(orgId: string): Promise<ErixAdapter> {
+  const cached = cache.get(orgId);
+  if (cached && cached.expiresAt > Date.now()) return cached.adapter;
 
-export const erix_pipelines = pgTable("erix_pipelines", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id").references(() => ecodrix_organizations.id).notNull(),
-  name: text("name").notNull(),
-  isDefault: boolean("is_default").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
-});
+  const [org] = await db
+    .select()
+    .from(ecodrix_organizations)
+    .where(eq(ecodrix_organizations.id, orgId))
+    .limit(1);
+  if (!org) throw new Error(`Org ${orgId} not found`);
 
-export const erix_pipeline_stages = pgTable("erix_pipeline_stages", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id").references(() => ecodrix_organizations.id).notNull(),
-  pipelineId: uuid("pipeline_id").references(() => erix_pipelines.id).notNull(),
-  name: text("name").notNull(),
-  color: text("color"),
-  order: integer("order").default(0),
-});
+  let adapter: ErixAdapter;
+  if (org.dataMode === "platform") {
+    adapter = new PostgresAdapter(getDefaultPool());
+  } else if (org.dataMode === "own" && org.externalDbType === "mongodb") {
+    adapter = new MongoAdapter(org.clientCode); // wraps getCrmModels
+  } else if (org.dataMode === "own" && org.externalDbType === "postgresql") {
+    const pool = await getTenantPgPool(orgId, decrypt(org.externalDbUri!));
+    adapter = new PostgresAdapter(pool);
+  } else if (org.dataMode === "both") {
+    adapter = new DualAdapter(
+      new PostgresAdapter(getDefaultPool()),
+      org.externalDbType,
+      decrypt(org.externalDbUri!),
+    );
+  } else {
+    throw new Error(`Unknown data_mode ${org.dataMode}`);
+  }
 
-export const erix_lead_activities = pgTable("erix_lead_activities", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id").references(() => ecodrix_organizations.id).notNull(),
-  leadId: uuid("lead_id").references(() => erix_leads.id).notNull(),
-  type: text("type").notNull(),
-  content: text("content"),
-  metadata: jsonb("metadata").default("{}"),
-  actorId: uuid("actor_id"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
+  cache.set(orgId, { adapter, expiresAt: Date.now() + TTL_MS });
+  return adapter;
+}
 
-export const erix_automations = pgTable("erix_automations", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id").references(() => ecodrix_organizations.id).notNull(),
-  name: text("name").notNull(),
-  trigger: text("trigger").notNull(),
-  conditions: jsonb("conditions").default("{}"),
-  actions: jsonb("actions").default("[]"),
-  isActive: boolean("is_active").default(true),
-  createdAt: timestamp("created_at").defaultNow(),
-});
+export function invalidateAdapter(orgId: string) {
+  cache.delete(orgId);
+}
+```
 
-export const erix_field_configs = pgTable("erix_field_configs", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id").references(() => ecodrix_organizations.id).notNull(),
-  entity: text("entity").default("lead"),
-  fields: jsonb("fields").default("[]"),
-  fieldOrder: text("field_order").array(),
-  tableColumns: text("table_columns").array(),
-  kanbanCardFields: text("kanban_card_fields").array(),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
+`DualAdapter` writes to Postgres synchronously, then enqueues a sync job to ErixStore
+(`erix-sync`). Reads always come from primary Postgres.
 
-export const erix_invoices = pgTable("erix_invoices", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id").references(() => ecodrix_organizations.id).notNull(),
-  invoiceNumber: text("invoice_number").notNull(),
-  leadId: uuid("lead_id").references(() => erix_leads.id),
-  billTo: jsonb("bill_to").default("{}"),
-  items: jsonb("items").default("[]"),
-  subtotal: integer("subtotal").default(0),
-  taxAmount: integer("tax_amount").default(0),
-  discount: integer("discount").default(0),
-  total: integer("total").default(0),
-  currency: text("currency").default("INR"),
-  status: text("status").default("draft"),
-  dueDate: timestamp("due_date"),
-  paidAt: timestamp("paid_at"),
-  paidAmount: integer("paid_amount"),
-  paymentProvider: text("payment_provider"),
-  paymentLinkId: text("payment_link_id"),
-  paymentLinkUrl: text("payment_link_url"),
-  sentVia: text("sent_via"),
-  sentAt: timestamp("sent_at"),
-  pdfUrl: text("pdf_url"),
-  isRecurring: boolean("is_recurring").default(false),
-  recurringInterval: text("recurring_interval"),
-  nextInvoiceDate: timestamp("next_invoice_date"),
-  notes: text("notes"),
-  terms: text("terms"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
+---
 
-export const erix_invoice_settings = pgTable("erix_invoice_settings", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id").references(() => ecodrix_organizations.id).notNull().unique(),
-  prefix: text("prefix").default("INV"),
-  nextNumber: integer("next_number").default(1),
-  companyName: text("company_name"),
-  companyAddress: text("company_address"),
-  companyGstin: text("company_gstin"),
-  companyPan: text("company_pan"),
-  logoUrl: text("logo_url"),
-  defaultTerms: text("default_terms"),
-  defaultNotes: text("default_notes"),
-  defaultDueDays: integer("default_due_days").default(15),
-  taxRate: integer("tax_rate").default(18),
-  razorpayKeyId: text("razorpay_key_id"),
-  razorpayKeySecret: text("razorpay_key_secret"),
-  bankDetails: jsonb("bank_details"),
-});
+## 3. Entitlement Middleware
 
-export const erix_workflows = pgTable("erix_workflows", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id").references(() => ecodrix_organizations.id).notNull(),
-  name: text("name").notNull(),
-  description: text("description"),
-  nodes: jsonb("nodes").default("[]"),
-  edges: jsonb("edges").default("[]"),
-  compiledPlan: jsonb("compiled_plan"),
-  isActive: boolean("is_active").default(false),
-  lastRunAt: timestamp("last_run_at"),
-  runCount: integer("run_count").default(0),
-  errorCount: integer("error_count").default(0),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
+Two flavors. Both rely on `tenantResolver` running first.
 
-export const erix_workflow_runs = pgTable("erix_workflow_runs", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id").references(() => ecodrix_organizations.id).notNull(),
-  workflowId: uuid("workflow_id").references(() => erix_workflows.id).notNull(),
-  triggeredBy: text("triggered_by"),
-  status: text("status").default("running"),
-  nodeResults: jsonb("node_results").default("{}"),
-  startedAt: timestamp("started_at").defaultNow(),
-  completedAt: timestamp("completed_at"),
-  error: text("error"),
-});
+### 3.1 Quota meter (numeric)
 
-export const erix_webhooks = pgTable("erix_webhooks", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id").references(() => ecodrix_organizations.id).notNull(),
-  url: text("url").notNull(),
-  events: text("events").array(),
-  secret: text("secret").notNull(),
-  isActive: boolean("is_active").default(true),
-  failCount: integer("fail_count").default(0),
-  lastDeliveredAt: timestamp("last_delivered_at"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
+```ts
+// server/src/middleware/quotaGuard.ts
+import {
+  incrementUsage,
+  getRemaining,
+} from "@/services/platform/usage.service";
+
+export function createQuotaMiddleware(opts: {
+  service:
+    | "erix"
+    | "laie"
+    | "editor"
+    | "cloud_storage"
+    | "ai"
+    | "workflows"
+    | "erix_store";
+  feature: string; // e.g. "whatsappMessages", "aiCalls", "auditsPerMonth"
+  countFn?: (req) => number; // default 1
+}) {
+  return async (req, res, next) => {
+    const count = opts.countFn?.(req) ?? 1;
+    const remaining = await getRemaining(
+      req.org.id,
+      opts.service,
+      opts.feature,
+    );
+    if (remaining !== "unlimited" && remaining < count) {
+      return res.status(429).json({
+        error: "QUOTA_EXCEEDED",
+        feature: `${opts.service}.${opts.feature}`,
+        remaining: Math.max(0, remaining),
+      });
+    }
+    res.locals.consumeQuota = () =>
+      incrementUsage(req.org.id, opts.service, opts.feature, count);
+    next();
+  };
+}
+```
+
+The handler is responsible for calling `await res.locals.consumeQuota()` after a successful
+operation — keeps quota consistent with actual work done.
+
+### 3.2 Boolean feature gate
+
+```ts
+// server/src/middleware/planGuard.ts
+import { getEntitlements } from "@/services/platform/entitlements.service";
+
+export function requireFeature(path: string) {
+  // path like "erix.broadcasts" or "platform.whiteLabel"
+  return async (req, res, next) => {
+    const ent = await getEntitlements(req.org.id);
+    const enabled = path.split(".").reduce<any>((o, k) => o?.[k], ent.features);
+    if (!enabled) {
+      return res.status(402).json({
+        error: "FEATURE_NOT_AVAILABLE",
+        feature: path,
+        upgradeUrl: ent.upgradeUrl,
+      });
+    }
+    next();
+  };
+}
+```
+
+Usage:
+
+```ts
+router.post(
+  "/api/whatsapp/send",
+  tenantResolver,
+  createQuotaMiddleware({ service: "erix", feature: "whatsappMessages" }),
+  whatsappSendHandler,
+);
+
+router.post(
+  "/api/broadcasts",
+  tenantResolver,
+  requireFeature("erix.broadcasts"),
+  broadcastsHandler,
+);
 ```
 
 ---
 
-## 2. SDK USAGE PATTERNS
+## 4. Encryption Helper
 
-See `KIRO_AGENT_PROMPT.md` → "SDK-First Pattern" section.
-Full SDK namespace reference available in `ECOD/packages/erix-api/README.md`.
+Used for every external secret stored in Postgres (DB URIs, third-party tokens).
+
+```ts
+// server/src/lib/crypto.ts
+import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+
+const KEY = Buffer.from(process.env.ENCRYPTION_KEY!, "base64"); // 32 bytes
+const IV_LEN = 16;
+
+export function encrypt(plain: string): string {
+  const iv = randomBytes(IV_LEN);
+  const cipher = createCipheriv("aes-256-cbc", KEY, iv);
+  const enc = Buffer.concat([cipher.update(plain, "utf8"), cipher.final()]);
+  return `${iv.toString("hex")}:${enc.toString("hex")}`;
+}
+
+export function decrypt(ciphertext: string): string {
+  const [ivHex, dataHex] = ciphertext.split(":");
+  const decipher = createDecipheriv(
+    "aes-256-cbc",
+    KEY,
+    Buffer.from(ivHex, "hex"),
+  );
+  const dec = Buffer.concat([
+    decipher.update(Buffer.from(dataHex, "hex")),
+    decipher.final(),
+  ]);
+  return dec.toString("utf8");
+}
+```
+
+Generate the key once: `openssl rand -base64 32` and put in `ENCRYPTION_KEY`.
 
 ---
 
-## 3. ERIXSTORE INTEGRATION
+## 5. EventBus + Workflow Triggers
 
-See `ECOD/erix-store/README.md` for full API reference.
-Tables use `store_*` prefix (store_job_wal, store_snapshots, store_usage_events).
+Visual workflows fire from a central EventBus. Anywhere in the codebase that emits a domain
+event also calls `triggerWorkflows`, which checks `erix_workflows` for active matching triggers.
+
+```ts
+// server/src/services/saas/automation/event-bus.ts
+import { erixStore } from "@/lib/erixStore";
+
+export type DomainEvent =
+  | { type: "lead.created"; orgId: string; leadId: string; lead: Lead }
+  | {
+      type: "lead.stage_changed";
+      orgId: string;
+      leadId: string;
+      from: string;
+      to: string;
+    }
+  | {
+      type: "message.received";
+      orgId: string;
+      conversationId: string;
+      message: Message;
+    }
+  | { type: "deal.won"; orgId: string; leadId: string; value: number }
+  | { type: "deal.lost"; orgId: string; leadId: string; reason?: string }
+  | { type: "invoice.paid"; orgId: string; invoiceId: string };
+
+export async function emit(event: DomainEvent) {
+  // Synchronous in-process listeners (notifications, scoring updates)
+  await runListeners(event);
+
+  // Visual workflow execution (queued)
+  await triggerWorkflows(event);
+
+  // External webhooks (queued)
+  await dispatchWebhooks(event);
+
+  // Pub/sub for SSE / Socket.io live UI
+  await erixStore.pubsub.publish(`org:${event.orgId}`, event);
+}
+
+async function triggerWorkflows(event: DomainEvent) {
+  const matches = await db
+    .select()
+    .from(erix_workflows)
+    .where(
+      and(
+        eq(erix_workflows.orgId, event.orgId),
+        eq(erix_workflows.isActive, true),
+        eq(erix_workflows.triggerType, mapEventToTriggerType(event.type)),
+      ),
+    );
+  for (const wf of matches) {
+    await erixStore.queue.add(
+      "workflow-execute",
+      {
+        workflowId: wf.id,
+        orgId: event.orgId,
+        triggerData: event,
+      },
+      { attempts: 3 },
+    );
+  }
+}
+```
+
+Workers consume `workflow-execute` from `server/src/workers/workflow.worker.ts` and walk the
+React Flow graph (`nodes` + `edges`) stored on `erix_workflows`.
 
 ---
 
-## 4. SEED DATA
+## 6. AI Auto-Respond (Gemini 2.0 Flash on Vertex AI)
 
-```typescript
-// server/scripts/seed-platform.ts
-const plans = [
-  { name: "Free", slug: "free", erixEnabled: false, laieEnabled: false, priceMonthlyUsd: 0 },
-  { name: "ERIX Starter", slug: "erix_starter", erixEnabled: true, priceMonthlyUsd: 29, erixContactsLimit: 500 },
-  { name: "LAIE Starter", slug: "laie_starter", laieEnabled: true, priceMonthlyUsd: 29, laieAuditsPerMonth: 100 },
-  { name: "ECODrIx Pro", slug: "ecodrix_pro", erixEnabled: true, laieEnabled: true, priceMonthlyUsd: 79, laieAuditsPerMonth: 500, erixContactsLimit: -1, erixAgentsLimit: 5 },
-  { name: "ECODrIx Growth", slug: "ecodrix_growth", erixEnabled: true, laieEnabled: true, infraEnabled: true, priceMonthlyUsd: 149, laieAuditsPerMonth: -1, erixContactsLimit: -1, erixAgentsLimit: -1 },
-];
+```ts
+// server/src/services/saas/ai/auto-responder.ts (excerpt)
+const GEMINI_MODEL = "gemini-2.0-flash";
+const GEMINI_MAX_OUTPUT_TOKENS = 300;
+const SEMANTIC_CACHE_THRESHOLD = 0.92;
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
-// Demo org: ECODrIx Demo (Pro plan)
-// Demo user: demo@ecodrix.com / Demo@2026
-// 5 sample leads, 2 LAIE audits, 1 WhatsApp template, 1 broadcast
+export async function handleInboundWithAI(
+  orgId,
+  conversationId,
+  messageFrom,
+  body,
+) {
+  const cached = await erixStore.semantic.search(
+    body,
+    SEMANTIC_CACHE_THRESHOLD,
+  );
+  if (cached) return { text: cached.value, confidence: 0.95, source: "cache" };
+
+  const ctx = await buildContext(orgId, conversationId, messageFrom);
+  const sys = buildSystemPrompt({
+    orgConfig: ctx.orgConfig,
+    leadProfile: ctx.leadProfile,
+  });
+  const user = buildUserMessage({
+    recentMessages: ctx.recentMessages,
+    latest: body,
+  });
+
+  const text = await callGemini(sys, user);
+  const confidence = estimateConfidence(text, body, ctx.recentMessages.length);
+
+  await erixStore.semantic.set(`ai:${orgId}:${Date.now()}`, body, text, {
+    ttlMs: CACHE_TTL_MS,
+  });
+
+  if (
+    confidence >= ctx.orgConfig.confidenceThreshold &&
+    ctx.orgConfig.aiAutoReply
+  ) {
+    await sendWhatsAppMessage(orgId, messageFrom, text);
+    await logActivity(orgId, ctx.leadProfile?.id, "ai_auto_responded", {
+      confidence,
+      source: "ai-agent",
+      model: GEMINI_MODEL,
+    });
+    return { text, confidence, sent: true };
+  }
+  // queue suggestion for human review
+  await erixStore.pubsub.publish(`inbox:${orgId}`, {
+    type: "ai_suggestion",
+    conversationId,
+    suggestion: text,
+    confidence,
+  });
+  return { text, confidence, sent: false, needsReview: true };
+}
+```
+
+Vertex AI auth: `GOOGLE_CLOUD_PROJECT` + ADC. No API key.
+
+LAIE outreach kits use `@anthropic-ai/vertex-sdk` (Claude Sonnet 4.5) — different model, same
+Vertex tenant. See `server/src/lib/laie/claudeClient.ts`.
+
+---
+
+## 7. ErixStore Usage
+
+Single import everywhere:
+
+```ts
+// server/src/lib/erixStore.ts
+import { createErixClient } from "@ecodrix/erix-client";
+export const erixStore = createErixClient({
+  url: process.env.ERIX_STORE_URL ?? "http://localhost:6399",
+  apiKey: process.env.ERIX_STORE_API_KEY!,
+  tenantId: "platform", // workers re-scope per-tenant when needed
+});
+```
+
+Common operations:
+
+```ts
+// Cache
+await erixStore.cache.get(key);
+await erixStore.cache.set(key, value, {
+  ttlMs,
+  tags: ["leads", `org:${orgId}`],
+});
+await erixStore.cache.invalidateByTag(`org:${orgId}`);
+
+// Queue
+await erixStore.queue.add("whatsapp-send", payload, {
+  attempts: 3,
+  delayMs: 0,
+  priority: 8,
+});
+
+// Pub/Sub (server emits, SDK subscribes via Socket.io adapter)
+await erixStore.pubsub.publish(`org:${orgId}`, event);
+
+// Locks
+const lock = await erixStore.locks.acquire(`broadcast:${broadcastId}`, {
+  ttlMs: 60_000,
+});
+try {
+  /* exclusive section */
+} finally {
+  await lock.release();
+}
+
+// Rate limit
+const allowed = await erixStore.rateLimit.check(`api:${orgId}`, {
+  maxPerMinute: 100,
+});
+
+// Semantic cache (Google embeddings)
+await erixStore.semantic.set(key, query, value, { ttlMs });
+const hit = await erixStore.semantic.search(query, 0.92);
+```
+
+Persistence: WAL → `store_job_wal`, snapshots → `store_snapshots`, usage → `store_usage_events`.
+
+---
+
+## 8. Service Layer Conventions
+
+```ts
+// server/src/services/saas/crm/leads.service.ts
+import { getErixAdapter } from "@/lib/erix-adapter";
+import { emit } from "@/services/saas/automation/event-bus";
+
+export async function createLead(orgId: string, input: CreateLeadInput) {
+  const adapter = await getErixAdapter(orgId);
+  const lead = await adapter.leads.create(orgId, input);
+  await emit({ type: "lead.created", orgId, leadId: lead.id, lead });
+  return lead;
+}
+```
+
+Rules:
+
+- Service signatures take `orgId`, never `clientCode` (legacy `clientCode` lives behind the adapter).
+- Service methods emit via `event-bus.emit` after persistence — never before.
+- Service tests use a mock adapter (`server/src/lib/erix-adapter/mock-adapter.ts`).
+
+---
+
+## 9. SDK-First Frontend
+
+```tsx
+// saas/src/providers/EcodProvider.tsx
+"use client";
+import { ECODrIxAPI } from "@ecodrix/erix-api";
+import { useSession } from "next-auth/react";
+
+const Ctx = createContext<ECODrIxAPI | null>(null);
+export function EcodProvider({ children }: { children: React.ReactNode }) {
+  const { data: session } = useSession();
+  const ecod = useMemo(() => {
+    if (!session?.user?.tenant) return null;
+    return new ECODrIxAPI({
+      apiKey: session.user.tenant.apiKey,
+      clientCode: session.user.tenant.clientCode,
+      baseUrl: process.env.NEXT_PUBLIC_API_URL,
+    });
+  }, [session?.user?.tenant]);
+  return <Ctx.Provider value={ecod}>{children}</Ctx.Provider>;
+}
+export function useEcod() {
+  const v = useContext(Ctx);
+  if (!v) throw new Error("useEcod outside EcodProvider");
+  return v;
+}
+```
+
+Hooks always go through the SDK:
+
+```ts
+export function useLeads(filters) {
+  const ecod = useEcod();
+  return useQuery({
+    queryKey: ["leads", filters],
+    queryFn: () => ecod.crm.leads.list(filters),
+  });
+}
+```
+
+Real-time:
+
+```ts
+useEffect(() => {
+  const off = ecod.on("message.received", (m) =>
+    qc.invalidateQueries(["messages", m.conversationId]),
+  );
+  return off;
+}, [ecod]);
 ```
 
 ---
 
-## 5. ENVIRONMENT VARIABLES
+## 10. Drizzle Patterns
 
-### Frontend (`ECOD/saas/.env.local`)
-```bash
-NEXTAUTH_SECRET=""
-NEXTAUTH_URL="http://localhost:3000"
-GOOGLE_CLIENT_ID=""
-GOOGLE_CLIENT_SECRET=""
-NEXT_PUBLIC_API_URL="http://localhost:4000"
-API_URL="http://localhost:4000"
+```ts
+// server/src/shared/db/index.ts
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
+import * as schema from "./schema";
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL!, max: 10 });
+export const db = drizzle(pool, { schema });
 ```
 
-### Backend (`ECOD/server/.env`)
+Querying with org isolation:
+
+```ts
+import { and, eq, desc } from "drizzle-orm";
+import { erix_leads } from "@/shared/db/schema";
+
+const leads = await db
+  .select()
+  .from(erix_leads)
+  .where(and(eq(erix_leads.orgId, orgId), eq(erix_leads.isArchived, false)))
+  .orderBy(desc(erix_leads.scoreTotal))
+  .limit(50);
+```
+
+Migrations: one `drizzle.config.ts` at `ECOD/server/drizzle.config.ts` covers `platform/`, `erix/`,
+and `laie/` schemas. Run `pnpm db:generate` then `pnpm db:push` (or use `pnpm db:migrate` for the
+versioned migrations under `server/src/shared/db/migrations/{platform,erix,laie}/`).
+
+---
+
+## 11. Environment Variables
+
+### `ECOD/server/.env`
+
 ```bash
 PORT=4000
 NODE_ENV=development
-DATABASE_URL="postgresql://..."
-SUPABASE_URL=""
-SUPABASE_SERVICE_KEY=""
-MONGODB_URI="mongodb://localhost:27017"
-ERIX_STORE_URL="http://localhost:6399"
-ERIX_API_KEY=""
-CORE_API_KEY=""
-ANTHROPIC_API_KEY=""
-AWS_ACCESS_KEY_ID=""
-AWS_SECRET_ACCESS_KEY=""
-AWS_REGION="ap-south-1"
-R2_ACCOUNT_ID=""
-R2_ACCESS_KEY=""
-R2_SECRET_KEY=""
-META_WA_TOKEN=""
-META_WA_PHONE_ID=""
-RAZORPAY_KEY_ID=""
-RAZORPAY_KEY_SECRET=""
-GOOGLE_PLACES_API_KEY=""
+DATABASE_URL=postgres://...                     # Supabase
+MONGO_URI=mongodb://localhost:27017             # legacy + freelance tenants
+ERIX_STORE_URL=http://localhost:6399
+ERIX_STORE_API_KEY=...
+CORE_API_KEY=...                                # admin-only operator key
+ENCRYPTION_KEY=base64:32-byte-key
+
+GOOGLE_CLOUD_PROJECT=...                        # Vertex AI (Gemini + Claude)
+CLOUD_ML_REGION=us-central1
+ANTHROPIC_VERTEX_PROJECT_ID=...                 # optional override
+GEMINI_API_KEY=                                 # only if NOT using Vertex ADC
+
+AWS_ACCESS_KEY_ID=...                           # SES + R2 (R2 uses S3-compatible)
+AWS_SECRET_ACCESS_KEY=...
+AWS_REGION=ap-south-1
+R2_ACCOUNT_ID=...
+R2_BUCKET=ecodrix-platform
+
+META_WA_TOKEN=...
+META_WA_PHONE_ID=...
+META_WA_VERIFY_TOKEN=...
+
+RAZORPAY_KEY_ID=...
+RAZORPAY_KEY_SECRET=...
+
+GOOGLE_PLACES_API_KEY=...
+MONGO_ATLAS_PUBLIC_KEY=...                      # provisioning freelance tenants (optional)
+MONGO_ATLAS_PRIVATE_KEY=...
+MONGO_ATLAS_CLUSTER=...
 ```
 
-### ErixStore (`ECOD/erix-store/.env`)
+### `ECOD/saas/.env.local`
+
 ```bash
-DATABASE_URL="postgresql://..."
-ERIX_API_KEY=""
-PORT=6399
-GOOGLE_API_KEY=""
+NEXTAUTH_SECRET=...
+NEXTAUTH_URL=http://localhost:3000
+NEXT_PUBLIC_API_URL=http://localhost:4000
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
 ```
+
+### `ECOD/erix-store/.env`
+
+```bash
+PORT=6399
+DATABASE_URL=postgres://...                     # same Supabase, separate `store_*` tables
+ERIX_API_KEY=...                                # what server hits us with
+GOOGLE_API_KEY=...                              # embeddings for semantic cache
+```
+
+---
+
+## 12. Plan Slug Map (Canonical)
+
+```
+free       — defaults for unpaid users
+starter    — entry tier, $29/mo
+growth     — most popular, $79/mo
+scale      — power users, $199/mo
+enterprise — custom pricing, white-label, 99.99% SLA
+```
+
+Old slugs (`erix_starter`, `laie_starter`, `ecodrix_pro`, `ecodrix_growth`) are retired. If you find
+them in code or docs, replace.
+
+---
+
+Last updated: 2026-05-30 · Cross-references: `saas/.kiro/specs/platform-pricing-entitlements/`, `saas/.kiro/specs/platform-completion-end-to-end/`, `saas/.kiro/specs/ai-auto-respond/`.

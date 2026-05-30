@@ -1,215 +1,154 @@
-# ECODrIx — Implementation Roadmap
-**Version:** 1.0 | **Date:** May 2026
+# 06 — Implementation Roadmap
 
----
+> Five phases, each anchored to a real spec under `saas/.kiro/specs/`. Each line item is either
+> ✅ shipped, 🟡 in flight, or ⬜ planned. Status reflects May 30, 2026.
 
-## 1. Product Development Strategy
+## How this roadmap works
 
-**Approach:** Ship fast, iterate based on real usage. Service clients (managed by you) are the beta testers. Direct users get the polished version.
+- Each phase ends with something deployable and revenue-relevant.
+- Each item maps to a spec where one exists. New items land in new specs; we don't ship code without a spec.
+- Plan slugs are canonical: `free` / `starter` / `growth` / `scale` / `enterprise`. Old slugs are gone.
 
-**Principle:** Every phase must end with something DEPLOYABLE and REVENUE-GENERATING. No phase is "just infrastructure."
+## Phase 1 — Foundation (DONE)
 
----
+Goal: pricing + entitlements live, schemas reorganized, AI auto-respond on Gemini, visual workflow
+builder shipped. Channel onboarding works enough to start direct signups.
 
-## 2. MVP Scope
+| #    | Item                                                                                               | Status | Spec                             |
+| ---- | -------------------------------------------------------------------------------------------------- | :----: | -------------------------------- |
+| 1.1  | Three-family Postgres schema (`ecodrix_*`, `erix_*`, `laie_*`) under one Drizzle config            |   ✅   | `postgresql-migration/`          |
+| 1.2  | Plan + add-on catalog, atomic usage meter, entitlement service                                     |   ✅   | `platform-pricing-entitlements/` |
+| 1.3  | Subscription lifecycle worker (free signup, upgrade, downgrade-on-period-end, past_due grace)      |   ✅   | `platform-pricing-entitlements/` |
+| 1.4  | AI auto-respond on Gemini 2.0 Flash (Vertex AI) with semantic cache + confidence threshold         |   ✅   | `ai-auto-respond/`               |
+| 1.5  | Visual Automation Builder (React Flow + Postgres engine + EventBus + per-execution log)            |   ✅   | `visual-automation-builder/`     |
+| 1.6  | Console dashboard redesign (cloud-console pattern)                                                 |   ✅   | `console-dashboard-redesign/`    |
+| 1.7  | Editor pro features in `@ecodrix/erix-react` (collab, comments, versions, exports) — gated by plan |   🟡   | `editor-pro-features/`           |
+| 1.8  | Invoice module (builder + PDF + Razorpay link + WhatsApp delivery + paid webhook)                  |   ✅   | `invoice-module/`                |
+| 1.9  | ERIX CRM frontend (inbox, contacts, pipeline, templates, broadcasts, segments)                     |   ✅   | `erix-crm-module/`               |
+| 1.10 | LAIE audit UI (search → progress → result card → push to ERIX)                                     |   🟡   | `laie-audit-ui/`                 |
 
-| Feature | In MVP? | Rationale | Effort |
-|---------|---------|-----------|--------|
-| Console dashboard | Yes | First thing users see | M |
-| User registration + auth | Yes | Required for everything | S |
-| WhatsApp inbox | Yes | Core value prop | L |
-| CRM contacts table | Yes | Basic lead management | M |
-| Pipeline Kanban | Yes | Visual deal tracking | M |
-| Invoice builder + WhatsApp send | Yes | Revenue differentiator | M |
-| Billing (Razorpay) | Yes | Collect money | M |
-| LAIE audit (basic) | Yes | Unique differentiator | M |
-| AI auto-respond | Yes | Key selling point | M |
-| Templates + broadcasts | Yes | WhatsApp marketing | M |
-| Dynamic field builder | No | Nice-to-have, not blocking | M |
-| Visual automation builder | No | Complex, Phase 3 | L |
-| Multi-channel inbox | No | WhatsApp-only is fine for MVP | L |
-| Agency white-label | No | Existing admin panel works | L |
-| Voice AI | No | Future, not core | XL |
+## Phase 2 — Differentiate (mostly DONE; completion in flight)
 
----
+Goal: every metered route is gated, both acquisition channels create the same `ecodrix_organizations`
+row, public registration works end-to-end, full settings + infra dashboards.
 
-## 3. Phase 1: Foundation (Weeks 1-4)
+| #    | Item                                                                                                        | Status | Spec                              |
+| ---- | ----------------------------------------------------------------------------------------------------------- | :----: | --------------------------------- |
+| 2.1  | `ErixAdapter` interface + `PostgresAdapter` + `MongoAdapter` (legacy bridge) + `DualAdapter` + factory      |   🟡   | `platform-completion-end-to-end/` |
+| 2.2  | `tenantResolver` middleware reading from `ecodrix_organizations`; `saasAuth` rewritten on top               |   🟡   | `platform-completion-end-to-end/` |
+| 2.3  | Public `POST /api/auth/register` for direct signups                                                         |   ⬜   | `platform-completion-end-to-end/` |
+| 2.4  | Admin onboarding bridge: `POST /api/admin/clients` writes both Mongo `Client` and `ecodrix_organizations`   |   ⬜   | `platform-completion-end-to-end/` |
+| 2.5  | Mongo Atlas provisioner — admin "Provision MongoDB" button, encrypted URI storage, BYO URI fallback         |   ⬜   | `platform-completion-end-to-end/` |
+| 2.6  | Backfill script for existing freelance Clients → `ecodrix_organizations`                                    |   ⬜   | `platform-completion-end-to-end/` |
+| 2.7  | Quota enforcement on every metered route (WA send, AI calls, PDF export, broadcasts, workflow runs, audits) |   🟡   | `platform-completion-end-to-end/` |
+| 2.8  | Boolean feature gates (broadcasts, webhooks, custom branding, white-label, priority support)                |   🟡   | `platform-completion-end-to-end/` |
+| 2.9  | `/settings/{profile,team,security,developer,data-source,fields}` in saas                                    |   ⬜   | `platform-completion-end-to-end/` |
+| 2.10 | `/infra/{dashboard,queues,cache,pubsub}` in saas                                                            |   ⬜   | `platform-completion-end-to-end/` |
+| 2.11 | Onboarding wizard (`/onboarding`) for both channels                                                         |   ⬜   | `platform-completion-end-to-end/` |
+| 2.12 | Forgot password flow (`/auth/forgot` + `/auth/reset` + `ecodrix_password_resets`)                           |   🟡   | `platform-completion-end-to-end/` |
+| 2.13 | Sync engine for `data_mode="both"` (ErixStore `erix-sync` queue + worker + divergence alerts)               |   ⬜   | `platform-completion-end-to-end/` |
+| 2.14 | E2E smoke tests: direct signup, freelance onboarding, mode switch                                           |   ⬜   | `platform-completion-end-to-end/` |
 
-| # | Task | Owner | Priority | Effort |
-|---|------|-------|----------|--------|
-| 1 | Create ecodrix_organizations table in Supabase | Backend | P0 | S |
-| 2 | Migration script: MongoDB Client → PostgreSQL org | Backend | P0 | M |
-| 3 | Update saasAuth middleware to read from PostgreSQL | Backend | P0 | S |
-| 4 | Restructure ECOD/saas to console layout (route groups) | Frontend | P0 | M |
-| 5 | Build ConsoleTopbar + console home page | Frontend | P0 | M |
-| 6 | Build auth pages (login, register) with NextAuth v5 | Frontend | P0 | M |
-| 7 | Set up EcodProvider (SDK context) | Frontend | P0 | S |
-| 8 | Build ProductCard + InfraServiceCard components | Frontend | P1 | S |
-| 9 | Wire up TanStack Query hooks with SDK | Frontend | P0 | M |
-| 10 | Deploy: Vercel (frontend) + Render (backend) | DevOps | P0 | S |
+## Phase 3 — Power (in flight, immediately after Phase 2)
 
-**Deliverable:** User can register, log in, see console dashboard with live stats.
+Goal: dynamic field builder, embeddable SDK developer experience, AI inbox suggestions, additional
+multi-channel inbox.
 
----
+| #   | Item                                                                                                             | Status | Spec                                                          |
+| --- | ---------------------------------------------------------------------------------------------------------------- | :----: | ------------------------------------------------------------- |
+| 3.1 | Dynamic CRM field builder (`erix_field_configs` + UI at `/settings/fields`)                                      |   ⬜   | `platform-completion-end-to-end/` (Req 26)                    |
+| 3.2 | Webhook engine (`erix_webhooks` table + delivery worker with HMAC + retry + DLQ)                                 |   ⬜   | new spec planned                                              |
+| 3.3 | Developer page polish (`/settings/developer` — keys, origins, embed install snippets)                            |   ⬜   | `platform-completion-end-to-end/`                             |
+| 3.4 | Multi-channel inbox v1 — Instagram DMs (Meta Business API), email inbound (SES → webhook)                        |   ⬜   | new spec planned                                              |
+| 3.5 | LAIE batch audit UI + scheduled enrichment workflows                                                             |   ⬜   | `laie-audit-ui/` extension                                    |
+| 3.6 | Cloud Storage frontend (file explorer, signed URLs UI, transform tester)                                         |   ⬜   | spec under `platform-pricing-entitlements/` (Req 8) extension |
+| 3.7 | `@ecodrix/erix-react` editor pro features ship complete (collab, comments, versions, mentions, AI menu, exports) |   🟡   | `editor-pro-features/`                                        |
 
-## 4. Phase 2: Core CRM (Weeks 5-8)
+## Phase 4 — AI Moat (months 4–6)
 
-| # | Task | Owner | Priority | Effort |
-|---|------|-------|----------|--------|
-| 11 | Build ErixLayout (sidebar + product topbar) | Frontend | P0 | M |
-| 12 | Build WhatsApp inbox (split-pane, thread list, messages) | Frontend | P0 | L |
-| 13 | Build contacts page (DataTable + Sheet + filters) | Frontend | P0 | L |
-| 14 | Build pipeline Kanban (@dnd-kit) | Frontend | P0 | L |
-| 15 | Build templates page (grid + form) | Frontend | P1 | M |
-| 16 | Build broadcasts page (list + wizard) | Frontend | P1 | M |
-| 17 | Create erix_* CRM tables in PostgreSQL | Backend | P0 | M |
-| 18 | Build CRM API routes (leads CRUD, pipeline, messages) | Backend | P0 | L |
-| 19 | Wire Socket.io for real-time inbox updates | Backend | P0 | M |
-| 20 | Build billing page + Razorpay subscription integration | Full-stack | P0 | M |
+Goal: AI tiers "Learns" and "Predicts" come online. Adaptive cadence, predictive forecasting,
+morning briefings, lead score reactivity.
 
-**Deliverable:** Full CRM working — inbox, contacts, pipeline, templates, billing.
+| #   | Item                                                                               | Status | Spec             |
+| --- | ---------------------------------------------------------------------------------- | :----: | ---------------- |
+| 4.1 | AI lead qualification flow (multi-turn conversation → score → route)               |   ⬜   | new spec planned |
+| 4.2 | Adaptive cadence per industry (best send time, template retirement, scoring drift) |   ⬜   | new spec planned |
+| 4.3 | Predictive pipeline forecast (revenue + at-risk deals + optimal contact time)      |   ⬜   | new spec planned |
+| 4.4 | AI-generated follow-ups + template suggestions (Tier "Creates")                    |   ⬜   | new spec planned |
+| 4.5 | Daily AI briefing (Tier "Coaches", part 1)                                         |   ⬜   | new spec planned |
+| 4.6 | Reactive scoring on stage moves + activity (more granular than today's snapshot)   |   ⬜   | new spec planned |
 
----
+## Phase 5 — Platform / Network (months 6–12)
 
-## 5. Phase 3: Revenue Features (Weeks 9-12)
+Goal: white-label, plugin API, marketplace, conversational commerce, voice AI, mobile PWA.
 
-| # | Task | Owner | Priority | Effort |
-|---|------|-------|----------|--------|
-| 21 | Build invoice module (builder UI + live preview) | Frontend | P0 | L |
-| 22 | Create erix_invoices + erix_invoice_settings tables | Backend | P0 | S |
-| 23 | Razorpay payment link API integration | Backend | P0 | M |
-| 24 | PDF generation (React-PDF or server-side) | Backend | P0 | M |
-| 25 | Send invoice via WhatsApp (one-click) | Backend | P0 | S |
-| 26 | Payment webhook → mark invoice paid | Backend | P0 | S |
-| 27 | Build LAIE audit UI (search + progress + result card) | Frontend | P0 | L |
-| 28 | Build LAIE leads table + push-to-ERIX | Frontend | P1 | M |
-| 29 | Build AI auto-respond (per-org config page) | Full-stack | P0 | M |
-| 30 | Build basic automation (trigger → action, no visual) | Backend | P1 | M |
+| #   | Item                                                                                        | Status | Spec             |
+| --- | ------------------------------------------------------------------------------------------- | :----: | ---------------- |
+| 5.1 | Agency white-label mode — sub-org hierarchy via `agency_id`, brand config, custom domain    |   🟡   | new spec planned |
+| 5.2 | Plugin API + marketplace — third-party extensions sandboxed                                 |   ⬜   | new spec planned |
+| 5.3 | Conversational commerce — WhatsApp catalog, cart, order status via `erix_conversations`     |   ⬜   | new spec planned |
+| 5.4 | Voice AI v1 — Exotel inbound + ElevenLabs TTS + transcript → activity timeline              |   ⬜   | new spec planned |
+| 5.5 | Mobile PWA — offline queue (ErixStore), GPS check-in, business card OCR                     |   ⬜   | new spec planned |
+| 5.6 | Vertical-specific personas — clinic / real estate / ed-tech / services starter packs        |   ⬜   | new spec planned |
+| 5.7 | Pre-built workflow + outreach template marketplace (UGC + curated)                          |   ⬜   | new spec planned |
+| 5.8 | Sales coaching (Tier "Coaches" full) — weekly performance digest with concrete improvements |   ⬜   | new spec planned |
 
-**Deliverable:** Invoicing works end-to-end. LAIE audit works. AI responds to WhatsApp.
+## Spec → Phase Map (reverse lookup)
 
----
+| Spec                              | Phases it spans                         |
+| --------------------------------- | --------------------------------------- |
+| `postgresql-migration/`           | Phase 1                                 |
+| `platform-pricing-entitlements/`  | Phase 1 (+ Cloud Storage UI in Phase 3) |
+| `console-dashboard-redesign/`     | Phase 1                                 |
+| `erix-crm-module/`                | Phase 1                                 |
+| `invoice-module/`                 | Phase 1                                 |
+| `ai-auto-respond/`                | Phase 1                                 |
+| `visual-automation-builder/`      | Phase 1                                 |
+| `editor-pro-features/`            | Phase 1–3                               |
+| `laie-audit-ui/`                  | Phase 1–3                               |
+| `platform-completion-end-to-end/` | Phase 2 (+ touches Phase 3 surfaces)    |
 
-## 6. Phase 4: Power Features (Weeks 13-16)
+## Risk Register
 
-| # | Task | Owner | Priority | Effort |
-|---|------|-------|----------|--------|
-| 31 | Build visual automation builder (React Flow canvas) | Frontend | P1 | XL |
-| 32 | Build workflow execution engine (ErixStore workers) | Backend | P1 | L |
-| 33 | Create erix_workflows + erix_workflow_runs tables | Backend | P1 | S |
-| 34 | Build dynamic CRM field builder UI | Frontend | P1 | L |
-| 35 | Build webhook engine (erix_webhooks + delivery queue) | Backend | P1 | M |
-| 36 | Build ErixStore dashboard (queue inspector, metrics) | Frontend | P2 | M |
-| 37 | Build developer settings page (SDK config, origins) | Frontend | P2 | M |
-| 38 | Build settings pages (profile, org, team, security) | Frontend | P1 | M |
+| Risk                                | Impact        | Mitigation                                                                          |
+| ----------------------------------- | ------------- | ----------------------------------------------------------------------------------- |
+| Solo or small team velocity         | High          | Per-service feature flags; spec-first to keep shippable atoms                       |
+| Vertex AI quota / cost spike        | Medium        | Semantic cache + per-org `editor.aiCalls` quota + cheaper models for classification |
+| Mongo Atlas provisioning rate limit | Medium        | Queue provisioning; allow BYO URI fallback                                          |
+| `data_mode="both"` divergence       | Medium        | Postgres canonical; divergence alerts; "rebuild from platform" admin tool           |
+| Meta WhatsApp policy change         | High          | Adapter pattern at WA layer too; keep templates approved across categories          |
+| ErixStore single instance           | High (latent) | WAL + snapshot replay; horizontal sharding planned for Year 2                       |
 
-**Deliverable:** Visual automation builder working. Custom fields. Webhooks. Developer page.
+## Sprint Cadence
 
----
+Two-week sprints. Phase 2 expected to wrap in ~3 sprints (6 weeks) once committed. Phase 3 stretches
+4–6 sprints. Phases 4–5 are quarter-scale.
 
-## 7. Phase 5: AI & Scale (Months 5-6)
+| Sprint           | Focus                                                                                   |
+| ---------------- | --------------------------------------------------------------------------------------- |
+| Current (May 30) | Platform completion: adapters, tenantResolver, public registration, settings + infra UI |
+| Next             | Onboarding wizard + smoke tests + bring quota enforcement to 100% coverage              |
+| +1               | Dynamic field builder + webhook engine MVP                                              |
+| +2               | Multi-channel inbox v1 (Instagram DMs)                                                  |
+| +3               | LAIE batch audits + scheduled enrichment                                                |
+| +4               | AI Tier "Learns" foundations (adaptive cadence + scoring drift)                         |
 
-| # | Task | Owner | Priority | Effort |
-|---|------|-------|----------|--------|
-| 39 | AI qualification flow (conversation → score → route) | Backend | P1 | L |
-| 40 | AI-generated follow-ups + template suggestions | Backend | P1 | M |
-| 41 | Predictive pipeline (revenue forecast) | Backend | P2 | L |
-| 42 | Morning briefing (daily AI digest) | Backend | P2 | M |
-| 43 | Adaptive learning (track what works, auto-adjust) | Backend | P3 | L |
-| 44 | White-label agency mode (custom branding) | Full-stack | P2 | L |
-| 45 | Multi-channel inbox (Instagram DMs, email inbound) | Full-stack | P2 | L |
-| 46 | Pre-built automation templates (marketplace) | Full-stack | P3 | M |
-| 47 | Mobile PWA (offline-first) | Frontend | P3 | L |
-| 48 | Conversational commerce (WhatsApp storefront) | Full-stack | P3 | XL |
+## Success Gates Per Phase
 
-**Deliverable:** AI is smart and adaptive. Agency mode. Multi-channel. Platform feels complete.
+| Phase | Gate to consider it "done"                                                                                 |
+| ----- | ---------------------------------------------------------------------------------------------------------- |
+| 1     | Direct signup → first lead works on platform Postgres; pricing live; visual workflow runs                  |
+| 2     | Both channels produce identical orgs; every metered route gated; smoke tests green                         |
+| 3     | Three custom field types work end-to-end; webhook delivery succeeds 99%+; Instagram inbox merges into ERIX |
+| 4     | At least two AI Tier-2/3 features in production with measurable lift                                       |
+| 5     | At least one paying agency on white-label; PWA shell shipped; voice AI POC handles 100 calls               |
 
----
+## Assumptions
 
-## 8. Sprint Structure
+- Direct signup conversion (visit → signup) ≥ 5% in first 60 days of public launch.
+- Freelance ARPU stays > 2× direct ARPU through Year 1.
+- Vertex AI pricing for Gemini 2.0 Flash remains within budget.
+- We can hire one frontend engineer by Phase 3 to keep velocity.
+- Our customers will tolerate a 3–5 day backfill window when migrating freelance accounts to Postgres.
 
-| Sprint | Duration | Focus | Key Deliverable |
-|--------|----------|-------|-----------------|
-| Sprint 1-2 | 2 weeks | Foundation + Auth | Console dashboard live |
-| Sprint 3-4 | 2 weeks | CRM Backend + Inbox | WhatsApp inbox working |
-| Sprint 5-6 | 2 weeks | CRM Frontend | Contacts + Pipeline + Templates |
-| Sprint 7-8 | 2 weeks | Invoicing + Billing | Invoice → WhatsApp → Payment flow |
-| Sprint 9-10 | 2 weeks | LAIE + AI | Audit engine + AI auto-respond |
-| Sprint 11-12 | 2 weeks | Automation | Basic automation + webhook engine |
-| Sprint 13-14 | 2 weeks | Visual Builder | React Flow automation canvas |
-| Sprint 15-16 | 2 weeks | Polish + Launch | Field builder + settings + deploy |
-
----
-
-## 9. Engineering Team Requirements
-
-| Role | Headcount | Responsibility |
-|------|-----------|----------------|
-| Full-stack Lead (you) | 1 | Architecture, backend, AI, DevOps |
-| Frontend Developer | 1 | Console, CRM UI, automation builder |
-| AI/ML Engineer | 0.5 (part-time) | Prompt engineering, scoring models |
-| Designer | 0.5 (part-time) | UI polish, component design |
-| QA | 0 (automated) | Vitest + E2E via Playwright |
-
-**Minimum viable team: 1 person (you) for Phase 1-3. Hire frontend help for Phase 4+.**
-
----
-
-## 10. Folder Structure
-
-```
-ECOD/
-├── saas/                    → User-facing console (Next.js 15)
-├── admin/                   → Agency management panel (Next.js 16)
-├── server/                  → Backend API (Express + Hono)
-├── erix-store/              → In-memory engine (cache, queue, locks)
-├── packages/
-│   ├── erix-api/            → TypeScript SDK (@ecodrix/erix-api)
-│   └── erix-react/          → React SDK (@ecodrix/erix-react)
-└── .Architecture/
-    ├── KIRO_AGENT_PROMPT.md → Main architecture overview
-    ├── IMPLEMENTATION_DETAILS.md → Schemas + env vars
-    └── prd/                 → This PRD document set
-```
-
----
-
-## 11. Complexity & Timeline Estimate
-
-| Phase | Scope | Complexity | Weeks | Cumulative |
-|-------|-------|-----------|-------|-----------|
-| Phase 1: Foundation | Auth, console, deploy | 4/10 | 4 | Week 4 |
-| Phase 2: Core CRM | Inbox, contacts, pipeline, billing | 7/10 | 4 | Week 8 |
-| Phase 3: Revenue | Invoicing, LAIE, AI respond | 7/10 | 4 | Week 12 |
-| Phase 4: Power | Automation builder, webhooks, fields | 8/10 | 4 | Week 16 |
-| Phase 5: AI & Scale | Predictive AI, agency, multi-channel | 9/10 | 8 | Week 24 |
-
-**Total to full platform: ~24 weeks (6 months)**
-**Total to MVP (revenue-ready): ~12 weeks (3 months)**
-
----
-
-## 12. Risk Register
-
-| Risk | Likelihood | Impact | Owner | Mitigation |
-|------|-----------|--------|-------|------------|
-| Solo developer burnout | High | Critical | Self | Hire frontend dev by Week 8 |
-| WhatsApp API policy change | Medium | High | Backend | Abstract behind SDK, support alternatives |
-| Claude API cost exceeds budget | Medium | Medium | Backend | Semantic cache, Haiku for cheap ops, budget caps |
-| Supabase limits hit early | Low | Medium | DevOps | Monitor connections, upgrade plan proactively |
-| Users don't activate (low conversion) | Medium | High | Product | Onboarding checklist, daily AI briefing, service channel |
-| Competitors copy features | Medium | Low | Product | Speed of execution + AI training data moat |
-| ErixStore data loss on crash | Low | Critical | Backend | WAL persistence, snapshot every 5min, auto-restart |
-
----
-
-## 13. Assumptions Made
-
-- One developer (you) can ship Phase 1-3 in 12 weeks working full-time
-- Service clients (existing admin panel users) will beta-test without complaint
-- Razorpay test mode is sufficient for development (switch to live at launch)
-- Supabase free tier handles development; Pro ($25/mo) handles first 500 users
-- React Flow is the right choice for visual automation (vs custom canvas)
-- The market won't shift dramatically in the next 6 months
-- WhatsApp remains free for business-reply messages (24h window)
-- Existing @ecodrix/erix-api and @ecodrix/erix-react packages are stable enough to build on
+Last updated: 2026-05-30 · Cross-references: every spec under `saas/.kiro/specs/`.

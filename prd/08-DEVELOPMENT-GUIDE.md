@@ -1,754 +1,308 @@
-# ECODrIx — Development Execution Guide
-## Ready-to-Code Implementation Reference
-
-This document provides EXACT file paths, component names, API routes, queries,
-and step-by-step instructions for each development task. Use this to go directly
-into implementation without ambiguity.
-
----
-
-## PHASE 1: FOUNDATION (Weeks 1-4)
-
-### Task 1.1: PostgreSQL Migration (Client → Organization)
-
-**What:** Move tenant identity from MongoDB `Client` model to PostgreSQL `ecodrix_organizations` table.
-
-**Files to create/modify:**
-
-```
-ECOD/server/src/shared/db/schema/platform.ts    ← CREATE (Drizzle schema)
-ECOD/server/src/shared/db/migrations/           ← CREATE (migration files)
-ECOD/server/src/middleware/saasAuth.ts           ← MODIFY (read from PG instead of Mongo)
-ECOD/server/src/lib/connectionManager.ts        ← MODIFY (read URI from PG org record)
-ECOD/server/scripts/migrate-clients-to-pg.ts    ← CREATE (migration script)
-```
-
-**Step-by-step:**
-
-1. Create the Drizzle schema file with `ecodrix_organizations` table (see IMPLEMENTATION_DETAILS.md)
-2. Run `drizzle-kit generate` to create migration SQL
-3. Run `drizzle-kit push` to apply to Supabase
-4. Write migration script that:
-   - Reads all MongoDB `Client` documents
-   - Reads all `ClientDataSource` documents
-   - Inserts into `ecodrix_organizations` (mapping fields)
-   - Validates: count matches, no data loss
-5. Update `saasAuth.ts`:
-   ```typescript
-   // BEFORE: const client = await Client.findOne({ apiKey });
-   // AFTER:
-   const [org] = await db.select().from(ecodrix_organizations)
-     .where(eq(ecodrix_organizations.apiKey, apiKey))
-     .limit(1);
-   if (!org) return res.status(401).json({ error: "Unauthorized" });
-   req.orgId = org.id;
-   req.clientCode = org.clientCode;
-   ```
-6. Update `connectionManager.ts` (for "own" mode external DBs):
-   ```typescript
-   // Read external DB URI from PostgreSQL org record instead of MongoDB ClientDataSource
-   const [org] = await db.select().from(ecodrix_organizations)
-     .where(eq(ecodrix_organizations.clientCode, code))
-     .limit(1);
-   const uri = decrypt(org.externalDbUri);
-   ```
-7. Dual-write phase: keep writing to MongoDB for 2 weeks as backup
-8. After validation: remove MongoDB dependency from auth flow
-
-**Verification:** `curl -H "x-api-key: ecod_live_sk_..." http://localhost:4000/api/health` returns org context from PostgreSQL.
-
----
-
-### Task 1.2: ECOD/saas Console Redesign
-
-**What:** Restructure the Next.js app from flat dashboard to console-style with route groups.
-
-**Files to create:**
-
-```
-ECOD/saas/src/app/(console)/layout.tsx           ← Console layout (topbar only, NO sidebar)
-ECOD/saas/src/app/(console)/page.tsx             ← Console home (product cards + activity)
-ECOD/saas/src/app/(erix)/layout.tsx              ← ERIX layout (own sidebar)
-ECOD/saas/src/app/(erix)/erix/page.tsx           ← ERIX home (inbox)
-ECOD/saas/src/app/(laie)/layout.tsx              ← LAIE layout (own sidebar)
-ECOD/saas/src/app/(laie)/laie/page.tsx           ← LAIE home (audit)
-ECOD/saas/src/components/layout/ConsoleTopbar.tsx
-ECOD/saas/src/components/layout/ErixSidebar.tsx
-ECOD/saas/src/components/layout/LaieSidebar.tsx
-ECOD/saas/src/components/layout/ProductTopbar.tsx
-ECOD/saas/src/components/console/ProductCard.tsx
-ECOD/saas/src/components/console/InfraServiceCard.tsx
-ECOD/saas/src/components/console/ActivityFeed.tsx
-ECOD/saas/src/components/console/UsageMeters.tsx
-ECOD/saas/src/providers/EcodProvider.tsx
-```
-
-**Console layout (`(console)/layout.tsx`):**
-```typescript
-// NO sidebar. Only topbar + content area.
-export default function ConsoleLayout({ children }) {
-  return (
-    <div className="min-h-screen bg-[#0A1628]">
-      <ConsoleTopbar />
-      <main className="pt-16 px-6 max-w-7xl mx-auto">
-        {children}
-      </main>
-    </div>
-  );
-}
-```
-
-**ERIX layout (`(erix)/layout.tsx`):**
-```typescript
-// Own sidebar + "← Console" in topbar
-export default function ErixLayout({ children }) {
-  return (
-    <div className="min-h-screen bg-[#0A1628]">
-      <ProductTopbar title="ERIX CRM" backLink="/" />
-      <div className="flex pt-14">
-        <ErixSidebar />
-        <main className="flex-1 ml-60 p-6">
-          {children}
-        </main>
-      </div>
-    </div>
-  );
-}
-```
-
-**EcodProvider (`providers/EcodProvider.tsx`):**
-```typescript
-"use client";
-import { createContext, useContext, useMemo } from "react";
-import { ECODrIxAPI } from "@ecodrix/erix-api";
-import { useSession } from "next-auth/react";
-
-const EcodContext = createContext<ECODrIxAPI | null>(null);
-
-export function EcodProvider({ children }: { children: React.ReactNode }) {
-  const { data: session } = useSession();
-  const ecod = useMemo(() => {
-    if (!session?.user?.tenant) return null;
-    return new ECODrIxAPI({
-      apiKey: session.user.tenant.apiKey,
-      clientCode: session.user.tenant.clientCode,
-      baseUrl: process.env.NEXT_PUBLIC_API_URL || undefined,
-    });
-  }, [session?.user?.tenant]);
-  return <EcodContext.Provider value={ecod}>{children}</EcodContext.Provider>;
-}
-
-export function useEcod(): ECODrIxAPI {
-  const ctx = useContext(EcodContext);
-  if (!ctx) throw new Error("useEcod: no active session");
-  return ctx;
-}
-```
-
----
-
-### Task 1.3: Auth Pages
-
-**Files:**
-```
-ECOD/saas/src/app/(auth)/auth/login/page.tsx
-ECOD/saas/src/app/(auth)/auth/register/page.tsx
-ECOD/saas/src/components/auth/LoginForm.tsx
-ECOD/saas/src/components/auth/RegisterForm.tsx
-ECOD/saas/src/lib/auth.ts                       ← NextAuth config
-ECOD/saas/src/middleware.ts                      ← Route protection
-```
-
-**NextAuth config (`lib/auth.ts`):**
-```typescript
-import NextAuth from "next-auth";
-import Credentials from "next-auth/providers/credentials";
-import Google from "next-auth/providers/google";
-
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  session: { strategy: "jwt" },
-  pages: { signIn: "/auth/login" },
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.userId = user.id;
-        token.tenant = user.tenant; // { apiKey, clientCode }
-        token.plan = user.plan;
-        token.role = user.role;
-        token.erixEnabled = user.erixEnabled;
-        token.laieEnabled = user.laieEnabled;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      session.user.id = token.userId as string;
-      session.user.tenant = token.tenant as { apiKey: string; clientCode: string };
-      session.user.plan = token.plan as string;
-      session.user.role = token.role as string;
-      session.user.erixEnabled = token.erixEnabled as boolean;
-      session.user.laieEnabled = token.laieEnabled as boolean;
-      return session;
-    },
-  },
-  providers: [
-    Google({ clientId: process.env.GOOGLE_CLIENT_ID!, clientSecret: process.env.GOOGLE_CLIENT_SECRET! }),
-    Credentials({
-      async authorize(credentials) {
-        const res = await fetch(`${process.env.API_URL}/api/auth/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(credentials),
-        });
-        if (!res.ok) return null;
-        return (await res.json()).user;
-      },
-    }),
-  ],
-});
-```
-
-**Server auth endpoint to create (`ECOD/server/src/routes/auth/login.routes.ts`):**
-```typescript
-router.post("/login", async (req, res) => {
-  const { email, password } = req.body;
-  const [user] = await db.select().from(ecodrix_users)
-    .where(eq(ecodrix_users.email, email.toLowerCase()))
-    .limit(1);
-  if (!user || !user.passwordHash) return res.status(401).json({ error: "Invalid credentials" });
-  
-  const valid = await bcrypt.compare(password, user.passwordHash);
-  if (!valid) return res.status(401).json({ error: "Invalid credentials" });
-  
-  // Get org membership
-  const [member] = await db.select().from(ecodrix_members)
-    .where(eq(ecodrix_members.userId, user.id))
-    .limit(1);
-  const [org] = await db.select().from(ecodrix_organizations)
-    .where(eq(ecodrix_organizations.id, member.orgId))
-    .limit(1);
-  
-  await db.update(ecodrix_users).set({ lastLoginAt: new Date() }).where(eq(ecodrix_users.id, user.id));
-  
-  res.json({
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.fullName,
-      tenant: { apiKey: org.apiKey, clientCode: org.clientCode },
-      plan: org.subscriptionStatus,
-      role: member.role,
-      erixEnabled: org.erixEnabled,
-      laieEnabled: org.laieEnabled,
-    }
-  });
-});
-```
-
----
-
-### Task 1.4: Billing Page
-
-**Files:**
-```
-ECOD/saas/src/app/(console)/billing/page.tsx
-ECOD/saas/src/components/billing/PlanCard.tsx
-ECOD/saas/src/components/billing/PlanComparison.tsx
-ECOD/saas/src/hooks/useBilling.ts
-```
-
-**Server endpoint (`ECOD/server/src/routes/saas/billing.routes.ts`):**
-```typescript
-// GET /api/saas/billing/plans — list all plans
-router.get("/plans", async (req, res) => {
-  const plans = await db.select().from(ecodrix_plans).where(eq(ecodrix_plans.isActive, true));
-  res.json({ success: true, data: plans });
-});
-
-// POST /api/saas/billing/subscribe — create Razorpay subscription
-router.post("/subscribe", validateClientKey, async (req, res) => {
-  const { planId } = req.body;
-  const plan = await db.select().from(ecodrix_plans).where(eq(ecodrix_plans.id, planId)).limit(1);
-  
-  // Create Razorpay subscription
-  const subscription = await razorpay.subscriptions.create({
-    plan_id: plan[0].razorpayPlanId,
-    customer_notify: 1,
-    total_count: 12,
-  });
-  
-  // Save to DB
-  await db.insert(ecodrix_subscriptions).values({
-    orgId: req.orgId,
-    planId,
-    status: "created",
-    paymentProvider: "razorpay",
-    providerSubscriptionId: subscription.id,
-  });
-  
-  res.json({ success: true, data: { subscriptionId: subscription.id, shortUrl: subscription.short_url } });
-});
-```
-
----
-
-## PHASE 2: CORE CRM (Weeks 5-8)
-
-### Task 2.1: CRM Database Tables
-
-**Run this migration in Supabase:**
-All `erix_*` table definitions are in `IMPLEMENTATION_DETAILS.md`.
-After creating schemas, run: `drizzle-kit push`
-
-### Task 2.2: WhatsApp Inbox
-
-**Files to create:**
-```
-ECOD/saas/src/app/(erix)/erix/page.tsx              ← Inbox (default ERIX page)
-ECOD/saas/src/app/(erix)/erix/inbox/page.tsx        ← Full inbox view
-ECOD/saas/src/components/erix/InboxList.tsx          ← Left pane (thread list)
-ECOD/saas/src/components/erix/InboxThread.tsx        ← Right pane (messages)
-ECOD/saas/src/components/erix/MessageBubble.tsx      ← Single message
-ECOD/saas/src/components/erix/MessageComposer.tsx    ← Input + send + template picker
-ECOD/saas/src/hooks/useConversations.ts
-ECOD/saas/src/hooks/useMessages.ts
-ECOD/saas/src/store/erix.store.ts                   ← Active thread state
-```
-
-**Hook pattern:**
-```typescript
-// hooks/useConversations.ts
-export function useConversations() {
-  const ecod = useEcod();
-  return useQuery({
-    queryKey: ["conversations"],
-    queryFn: () => ecod.whatsapp.conversations.list(),
-    refetchInterval: 10000, // poll every 10s (Socket.io handles real-time)
-  });
-}
-
-export function useMessages(conversationId: string) {
-  const ecod = useEcod();
-  return useQuery({
-    queryKey: ["messages", conversationId],
-    queryFn: () => ecod.whatsapp.messages.list(conversationId),
-    enabled: !!conversationId,
-  });
-}
-
-export function useSendMessage() {
-  const ecod = useEcod();
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (data: { to: string; text: string }) => ecod.whatsapp.messages.send(data),
-    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ["messages"] }),
-  });
-}
-```
-
-**Real-time (Socket.io via SDK):**
-```typescript
-// In InboxList component:
-useEffect(() => {
-  const ecod = useEcod();
-  ecod.on("new_message", (msg) => {
-    queryClient.invalidateQueries({ queryKey: ["conversations"] });
-    queryClient.invalidateQueries({ queryKey: ["messages", msg.conversationId] });
-  });
-  ecod.on("message_status_update", (update) => {
-    // Update message status in cache (optimistic)
-  });
-  return () => { ecod.off("new_message"); ecod.off("message_status_update"); };
-}, []);
-```
-
-### Task 2.3: Contacts Table
-
-**Files:**
-```
-ECOD/saas/src/app/(erix)/erix/contacts/page.tsx
-ECOD/saas/src/components/erix/ContactTable.tsx       ← TanStack Table
-ECOD/saas/src/components/erix/ContactSheet.tsx       ← Slide-in detail/create
-ECOD/saas/src/components/erix/ContactFilters.tsx
-ECOD/saas/src/hooks/useContacts.ts
-```
-
-**Hook:**
-```typescript
-export function useContacts(params?: { status?: string; page?: number; search?: string }) {
-  const ecod = useEcod();
-  return useQuery({
-    queryKey: ["contacts", params],
-    queryFn: () => ecod.crm.leads.list(params),
-  });
-}
-```
-
-### Task 2.4: Pipeline Kanban
-
-**Files:**
-```
-ECOD/saas/src/app/(erix)/erix/pipeline/page.tsx
-ECOD/saas/src/components/erix/PipelineKanban.tsx     ← @dnd-kit board
-ECOD/saas/src/components/erix/PipelineCard.tsx       ← Draggable card
-ECOD/saas/src/components/erix/PipelineColumn.tsx     ← Droppable column
-ECOD/saas/src/hooks/usePipeline.ts
-```
-
-**Drag-and-drop handler:**
-```typescript
-async function handleDragEnd(event: DragEndEvent) {
-  const { active, over } = event;
-  if (!over) return;
-  const leadId = active.id as string;
-  const newStageId = over.id as string;
-  // Optimistic update
-  queryClient.setQueryData(["pipeline"], (old) => moveCardInCache(old, leadId, newStageId));
-  // Server update
-  await ecod.crm.leads.move(leadId, newStageId);
-}
-```
-
----
-
-## PHASE 3: REVENUE FEATURES (Weeks 9-12)
-
-### Task 3.1: Invoice Module
-
-**Files:**
-```
-ECOD/saas/src/app/(erix)/erix/invoices/page.tsx          ← Invoice list
-ECOD/saas/src/app/(erix)/erix/invoices/new/page.tsx      ← Invoice builder
-ECOD/saas/src/app/(erix)/erix/invoices/[id]/page.tsx     ← Invoice detail
-ECOD/saas/src/components/erix/InvoiceBuilder.tsx
-ECOD/saas/src/components/erix/InvoicePreview.tsx
-ECOD/saas/src/components/erix/InvoiceLineItems.tsx
-ECOD/saas/src/hooks/useInvoices.ts
-```
-
-**Server routes (`ECOD/server/src/routes/saas/invoice.routes.ts`):**
-```typescript
-// POST /api/saas/invoices — create invoice
-router.post("/", validateClientKey, async (req, res) => {
-  const { leadId, items, dueDate, notes } = req.body;
-  
-  // Get org invoice settings
-  const [settings] = await db.select().from(erix_invoice_settings)
-    .where(eq(erix_invoice_settings.orgId, req.orgId));
-  
-  // Calculate totals
-  const subtotal = items.reduce((sum, i) => sum + (i.qty * i.rate), 0);
-  const taxAmount = Math.round(subtotal * (settings.taxRate / 100));
-  const total = subtotal + taxAmount;
-  
-  // Generate invoice number
-  const invoiceNumber = `${settings.prefix}-${new Date().getFullYear()}-${String(settings.nextNumber).padStart(4, "0")}`;
-  
-  // Create Razorpay payment link
-  const paymentLink = await razorpay.paymentLink.create({
-    amount: total * 100, // paise
-    currency: "INR",
-    description: `Invoice ${invoiceNumber}`,
-    customer: { contact: lead.phone, email: lead.email },
-    callback_url: `${process.env.APP_URL}/invoices/confirm`,
-    callback_method: "get",
-  });
-  
-  // Insert invoice
-  const [invoice] = await db.insert(erix_invoices).values({
-    orgId: req.orgId,
-    invoiceNumber,
-    leadId,
-    items,
-    subtotal,
-    taxAmount,
-    total,
-    dueDate,
-    notes,
-    paymentLinkId: paymentLink.id,
-    paymentLinkUrl: paymentLink.short_url,
-    status: "draft",
-  }).returning();
-  
-  // Increment next number
-  await db.update(erix_invoice_settings)
-    .set({ nextNumber: settings.nextNumber + 1 })
-    .where(eq(erix_invoice_settings.orgId, req.orgId));
-  
-  res.json({ success: true, data: invoice });
-});
-
-// POST /api/saas/invoices/:id/send-whatsapp — send via WhatsApp
-router.post("/:id/send-whatsapp", validateClientKey, async (req, res) => {
-  const [invoice] = await db.select().from(erix_invoices)
-    .where(and(eq(erix_invoices.id, req.params.id), eq(erix_invoices.orgId, req.orgId)));
-  
-  const [lead] = await db.select().from(erix_leads)
-    .where(eq(erix_leads.id, invoice.leadId));
-  
-  // Send WhatsApp message with payment link
-  await sendWhatsAppMessage(req.orgId, lead.phone, 
-    `Hi ${lead.firstName}, here's your invoice #${invoice.invoiceNumber} for ₹${invoice.total.toLocaleString()}.\n\nPay here: ${invoice.paymentLinkUrl}\n\nThank you!`
-  );
-  
-  await db.update(erix_invoices)
-    .set({ status: "sent", sentAt: new Date(), sentVia: "whatsapp" })
-    .where(eq(erix_invoices.id, invoice.id));
-  
-  res.json({ success: true });
-});
-```
-
-### Task 3.2: LAIE Audit UI
-
-**Files:**
-```
-ECOD/saas/src/app/(laie)/laie/page.tsx               ← Audit search
-ECOD/saas/src/app/(laie)/laie/audit/[id]/page.tsx    ← Audit result
-ECOD/saas/src/components/laie/AuditSearchForm.tsx
-ECOD/saas/src/components/laie/AuditProgress.tsx
-ECOD/saas/src/components/laie/AuditResultCard.tsx
-ECOD/saas/src/components/laie/ScoreRadial.tsx
-ECOD/saas/src/components/laie/OutreachKit.tsx
-ECOD/saas/src/hooks/useLaieAudit.ts
-```
-
-**Hook (uses SDK escape hatch since LAIE isn't in typed SDK yet):**
-```typescript
-export function useRunAudit() {
-  const ecod = useEcod();
-  return useMutation({
-    mutationFn: (data: { businessName: string; city?: string }) =>
-      ecod.request("POST", "/api/laie/audit", data),
-  });
-}
-
-export function useAuditProgress(auditId: string) {
-  const ecod = useEcod();
-  // Subscribe to SSE for real-time progress
-  useEffect(() => {
-    if (!auditId) return;
-    ecod.on(`audit:${auditId}:progress`, (data) => {
-      setProgress(data);
-    });
-    return () => ecod.off(`audit:${auditId}:progress`);
-  }, [auditId]);
-}
-```
-
-### Task 3.3: AI Auto-Respond
-
-**Files:**
-```
-ECOD/server/src/services/saas/ai/auto-responder.ts   ← AI response logic
-ECOD/server/src/services/saas/ai/confidence.ts       ← Confidence scoring
-ECOD/saas/src/app/(erix)/erix/settings/page.tsx      ← AI config UI
-```
-
-**Auto-responder (`ECOD/server/src/services/saas/ai/auto-responder.ts`):**
-```typescript
-import Anthropic from "@anthropic-ai/sdk";
-import { store } from "@lib/erixStore";
-
-export async function handleInboundWithAI(orgId: string, message: InboundMessage) {
-  // 1. Get org AI config
-  const [org] = await db.select().from(ecodrix_organizations)
-    .where(eq(ecodrix_organizations.id, orgId));
-  
-  if (!org.aiAgentEnabled || !org.aiAutoReply) return null;
-  
-  // 2. Check semantic cache first (save API costs)
-  const cached = await store.semantic.search(message.body, 0.92);
-  if (cached) return { text: cached.value, confidence: 0.95, fromCache: true };
-  
-  // 3. Get conversation history
-  const history = await db.select().from(erix_messages)
-    .where(eq(erix_messages.conversationId, message.conversationId))
-    .orderBy(desc(erix_messages.createdAt))
-    .limit(20);
-  
-  // 4. Get lead context
-  const [lead] = await db.select().from(erix_leads)
-    .where(and(eq(erix_leads.orgId, orgId), eq(erix_leads.phone, message.from)));
-  
-  // 5. Call Claude
-  const claude = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const response = await claude.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 300,
-    system: `You are a sales assistant for ${org.name}. ${org.aiAgentPrompt || "Be helpful and professional."}
-Industry: ${org.industry || "general"}
-Lead context: ${lead ? `${lead.firstName}, stage: ${lead.stage}, score: ${lead.score}` : "Unknown lead"}`,
-    messages: history.reverse().map(m => ({
-      role: m.direction === "inbound" ? "user" : "assistant",
-      content: m.body || "",
-    })).concat([{ role: "user", content: message.body }]),
-  });
-  
-  const aiText = response.content[0].type === "text" ? response.content[0].text : "";
-  const confidence = estimateConfidence(aiText, message.body, history.length);
-  
-  // 6. Cache for future similar questions
-  await store.semantic.set(`ai:${orgId}:${Date.now()}`, message.body, aiText, { ttlMs: 86400000 });
-  
-  // 7. Auto-send or queue for review
-  if (confidence >= 0.85) {
-    await sendWhatsAppMessage(orgId, message.from, aiText);
-    await logActivity(orgId, lead?.id, "ai_auto_responded", { confidence, text: aiText });
-    return { text: aiText, confidence, sent: true };
-  } else {
-    // Queue for human review — show as suggestion in inbox
-    await store.pubsub.publish(`inbox:${orgId}`, {
-      type: "ai_suggestion",
-      conversationId: message.conversationId,
-      suggestion: aiText,
-      confidence,
-    });
-    return { text: aiText, confidence, sent: false, needsReview: true };
-  }
-}
-```
-
----
-
-## PHASE 4: POWER FEATURES (Weeks 13-16)
-
-### Task 4.1: Visual Automation Builder
-
-**Dependencies:** `pnpm add @xyflow/react` (React Flow v12)
-
-**Files:**
-```
-ECOD/saas/src/app/(erix)/erix/automation/page.tsx           ← Workflow list
-ECOD/saas/src/app/(erix)/erix/automation/[id]/page.tsx      ← Workflow editor
-ECOD/saas/src/components/erix/automation/WorkflowCanvas.tsx  ← React Flow canvas
-ECOD/saas/src/components/erix/automation/NodePalette.tsx     ← Draggable node list
-ECOD/saas/src/components/erix/automation/NodeProperties.tsx  ← Right panel config
-ECOD/saas/src/components/erix/automation/nodes/             ← Custom node components
-  TriggerNode.tsx
-  ConditionNode.tsx
-  ActionNode.tsx
-  WaitNode.tsx
-  AiNode.tsx
-ECOD/saas/src/hooks/useWorkflows.ts
-```
-
-**Server execution engine (`ECOD/server/src/services/saas/automation/executor.ts`):**
-```typescript
-import { ErixWorker } from "@ecodrix/erix-worker";
-import { store } from "@lib/erixStore";
-
-const workflowWorker = new ErixWorker(store, "workflow-execute", async (job) => {
-  const { workflowId, orgId, triggerData } = job.data;
-  
-  const [workflow] = await db.select().from(erix_workflows)
-    .where(and(eq(erix_workflows.id, workflowId), eq(erix_workflows.orgId, orgId)));
-  
-  const nodes = workflow.nodes as WorkflowNode[];
-  const edges = workflow.edges as WorkflowEdge[];
-  
-  // Find trigger node (entry point)
-  let currentNodeId = nodes.find(n => n.type === "trigger")?.id;
-  const context = { ...triggerData, results: {} };
-  
-  // Create run record
-  const [run] = await db.insert(erix_workflow_runs).values({
-    orgId, workflowId, triggeredBy: triggerData.source, status: "running",
-  }).returning();
-  
-  while (currentNodeId) {
-    const node = nodes.find(n => n.id === currentNodeId);
-    if (!node) break;
-    
-    try {
-      const result = await executeNode(node, context, orgId);
-      context.results[node.id] = result;
-      
-      // Log node result
-      await db.update(erix_workflow_runs)
-        .set({ nodeResults: sql`jsonb_set(node_results, '{${node.id}}', ${JSON.stringify(result)})` })
-        .where(eq(erix_workflow_runs.id, run.id));
-      
-      // Find next node
-      const outEdges = edges.filter(e => e.source === currentNodeId);
-      if (node.type === "condition") {
-        // Branch based on condition result
-        const branch = result.passed ? "yes" : "no";
-        currentNodeId = outEdges.find(e => e.sourceHandle === branch)?.target;
-      } else {
-        currentNodeId = outEdges[0]?.target;
-      }
-    } catch (err) {
-      await db.update(erix_workflow_runs)
-        .set({ status: "failed", error: err.message, completedAt: new Date() })
-        .where(eq(erix_workflow_runs.id, run.id));
-      break;
-    }
-  }
-  
-  await db.update(erix_workflow_runs)
-    .set({ status: "completed", completedAt: new Date() })
-    .where(eq(erix_workflow_runs.id, run.id));
-}, { maxConcurrentJobs: 10, pollIntervalMs: 3000 });
-
-workflowWorker.run();
-```
-
----
-
-## DEVELOPMENT COMMANDS
+# 08 — Development Guide
+
+> Practical onboarding for an engineer joining the project. Clone → env → run migrations → run
+> services → test. Conventions for adapters, Drizzle, queues, and PRs.
+
+## 1. Prerequisites
+
+| Tool         | Version                                                                    |
+| ------------ | -------------------------------------------------------------------------- |
+| Node         | 20.x (use `nvm use` — there's a `.node-version` file at the monorepo root) |
+| pnpm         | 9.x (workspace tool)                                                       |
+| Postgres     | 15+ (or use Supabase)                                                      |
+| MongoDB      | 6+ (only needed if you'll work on freelance flows)                         |
+| Docker       | optional, for ErixStore + worker stacks                                    |
+| `gcloud` CLI | required for Vertex AI ADC (Gemini + Claude)                               |
+
+## 2. Clone & Install
 
 ```bash
-# Start all services for development:
-cd ECOD/erix-store && pnpm dev          # Port 6399 (start first)
-cd ECOD/server && pnpm dev              # Port 4000
-cd ECOD/saas && pnpm dev                # Port 3000
-cd ECOD/admin && pnpm dev               # Port 3001
-
-# Database:
-cd ECOD/server && pnpm db:sync          # Push Drizzle schema to Supabase
-cd ECOD/server && pnpm db:studio        # Open Drizzle Studio (DB viewer)
-
-# SDK development:
-cd ECOD/packages/erix-api && pnpm dev   # Watch mode (auto-rebuild)
-cd ECOD/packages/erix-react && pnpm dev # Watch mode (Next.js dev server)
-
-# Testing:
-cd ECOD/server && pnpm test             # Run server tests
-cd ECOD/erix-store && pnpm test         # Run ErixStore tests
-
-# Build:
-cd ECOD/packages/erix-api && pnpm build:final    # Build + types
-cd ECOD/packages/erix-react && pnpm build:final  # Build + types
+git clone <repo>
+cd ecodrix
+pnpm install                  # bootstraps the monorepo
 ```
 
----
+The monorepo lives under `ECOD/`. Workspace packages:
 
-## VERIFICATION CHECKLIST (Per Phase)
+| Path                       | Purpose                               |
+| -------------------------- | ------------------------------------- |
+| `ECOD/saas`                | Direct user console (Next.js 15)      |
+| `ECOD/admin`               | Freelance / agency panel (Next.js)    |
+| `ECOD/server`              | API + workers                         |
+| `ECOD/erix-store`          | Cache / queue / locks / pubsub engine |
+| `ECOD/packages/erix-api`   | TS SDK                                |
+| `ECOD/packages/erix-react` | Embeddable React SDK                  |
+| `ECOD/packages/erix`       | Internal CRM types                    |
+| `ECOD/packages/chatbot`    | Embeddable chat widget                |
+| `ECOD/laie`                | LAIE actor runners                    |
 
-### After Phase 1:
-- [ ] `demo@ecodrix.com` / `Demo@2026` can log in
-- [ ] Console shows product cards with live stats
-- [ ] "Launch ERIX Console" navigates to /erix with own sidebar
-- [ ] "← Console" returns to /
-- [ ] All API calls go through SDK (no direct fetch in frontend)
+## 3. Environment Variables
 
-### After Phase 2:
-- [ ] WhatsApp inbox shows real conversations (or mock data)
-- [ ] Contacts table loads, sorts, filters, paginates
-- [ ] Pipeline Kanban drag-and-drop updates stage
-- [ ] Templates page shows list + create form
-- [ ] Billing page shows plans + upgrade button
+Create `.env` (or `.env.local`) per package. Copy from `.env.example` where present.
 
-### After Phase 3:
-- [ ] Invoice builder creates invoice with line items + GST
-- [ ] "Send via WhatsApp" delivers payment link to lead's phone
-- [ ] Razorpay webhook marks invoice as paid
-- [ ] LAIE audit runs and shows score card
-- [ ] AI auto-responds to WhatsApp (when enabled)
+### `ECOD/server/.env`
 
-### After Phase 4:
-- [ ] Visual automation builder renders canvas with nodes
-- [ ] Drag node from palette → drop on canvas → connect edges
-- [ ] Activate workflow → triggers fire on events
-- [ ] Webhook engine delivers HTTP calls with retry
-- [ ] Custom fields appear in contacts table + kanban cards
+See `IMPLEMENTATION_DETAILS.md` § 11 for the full list. Critical ones:
+
+```bash
+PORT=4000
+DATABASE_URL=postgres://…              # Supabase
+MONGO_URI=mongodb://localhost:27017
+ERIX_STORE_URL=http://localhost:6399
+ERIX_STORE_API_KEY=devkey
+CORE_API_KEY=devcore
+ENCRYPTION_KEY=base64:32-byte-key      # openssl rand -base64 32
+
+# Vertex AI (Gemini + Claude) — ADC via gcloud, no API keys
+GOOGLE_CLOUD_PROJECT=your-gcp-project
+CLOUD_ML_REGION=us-central1
+GEMINI_API_KEY=                         # leave empty if using ADC
+
+# Externals
+META_WA_TOKEN=…
+META_WA_PHONE_ID=…
+RAZORPAY_KEY_ID=…
+RAZORPAY_KEY_SECRET=…
+GOOGLE_PLACES_API_KEY=…
+```
+
+Auth for Vertex AI:
+
+```bash
+gcloud auth application-default login
+gcloud config set project $GOOGLE_CLOUD_PROJECT
+```
+
+### `ECOD/saas/.env.local`
+
+```bash
+NEXTAUTH_SECRET=…
+NEXTAUTH_URL=http://localhost:3000
+NEXT_PUBLIC_API_URL=http://localhost:4000
+GOOGLE_CLIENT_ID=…
+GOOGLE_CLIENT_SECRET=…
+```
+
+### `ECOD/erix-store/.env`
+
+```bash
+PORT=6399
+DATABASE_URL=postgres://…
+ERIX_API_KEY=devkey
+GOOGLE_API_KEY=…                       # for embeddings (semantic cache)
+```
+
+## 4. Database Setup
+
+```bash
+# 1. Apply schema (uses one drizzle config covering platform/erix/laie)
+cd ECOD/server
+pnpm db:generate                # generate migrations from schema/*.ts
+pnpm db:push                    # push to dev DB (or db:migrate for versioned)
+
+# 2. Seed plans + add-ons + demo org (if seed script exists)
+pnpm tsx scripts/seed-platform.ts
+
+# 3. Inspect with Drizzle Studio
+pnpm db:studio
+```
+
+For ErixStore tables:
+
+```bash
+cd ECOD/erix-store
+pnpm db:push
+```
+
+## 5. Run Services
+
+Order matters — start ErixStore first.
+
+```bash
+# Terminal 1 — ErixStore
+cd ECOD/erix-store && pnpm dev          # http://localhost:6399
+
+# Terminal 2 — Backend API + workers
+cd ECOD/server && pnpm dev              # http://localhost:4000
+
+# Terminal 3 — Direct UI
+cd ECOD/saas && pnpm dev                # http://localhost:3000
+
+# Terminal 4 — Freelance UI
+cd ECOD/admin && pnpm dev               # http://localhost:3001
+
+# (Optional) SDK watchers
+cd ECOD/packages/erix-api && pnpm dev
+cd ECOD/packages/erix-react && pnpm dev
+```
+
+## 6. Code Conventions
+
+### 6.1 TypeScript
+
+- `strict: true` everywhere. No `any`, no `ts-ignore`. Use `unknown` and narrow.
+- All exports get JSDoc on the public surface.
+- Filenames use the convention already in the folder (most use `kebab-case`; LAIE uses `camelCase.schema.ts` — match siblings).
+
+### 6.2 Drizzle Schema
+
+- Lives under `ECOD/server/src/shared/db/schema/{platform,erix,laie}/*.ts`.
+- Re-export each new table from the corresponding `index.ts` barrel.
+- Every CRM/LAIE row has `org_id` (or `tenant_id` for LAIE — wired to `ecodrix_organizations.id` via `laie_tenants.platform_org_id`).
+- Always declare indexes inline — keeps the schema file as single source of truth.
+
+### 6.3 Adapters
+
+- Never call Drizzle/Mongoose directly in services or routes. Always go through `getErixAdapter(orgId)`.
+- Add new methods to the `ErixAdapter` interface only when at least one route needs them.
+- For tests, use `MockAdapter` (in-memory, deterministic).
+
+### 6.4 Service Layer
+
+```ts
+export async function createLead(orgId: string, input: CreateLeadInput) {
+  const adapter = await getErixAdapter(orgId);
+  const lead = await adapter.leads.create(orgId, input);
+  await emit({ type: "lead.created", orgId, leadId: lead.id, lead });
+  return lead;
+}
+```
+
+- Services take `orgId`, never `clientCode` (legacy stays inside `MongoAdapter`).
+- Emit domain events via `event-bus.emit` after persistence.
+- Never throw raw errors to the user — wrap with `AppError` (status, code, message).
+
+### 6.5 Routes
+
+```ts
+router.post(
+  "/api/whatsapp/send",
+  tenantResolver,
+  createQuotaMiddleware({ service: "erix", feature: "whatsappMessages" }),
+  async (req, res) => {
+    const result = await whatsappService.send(req.org.id, req.body);
+    await res.locals.consumeQuota();
+    res.json({ success: true, data: result });
+  },
+);
+```
+
+- Stack order: `tenantResolver` → quota / feature gate → `idempotency` (if mutating) → handler.
+- Quota is consumed only after the handler succeeds (call `res.locals.consumeQuota()`).
+
+### 6.6 Frontend
+
+- All data through `@ecodrix/erix-api`. No `fetch` / `axios` to backend. No raw API URL strings.
+- Hooks shape:
+  ```ts
+  export function useLeads(filters) {
+    const ecod = useEcod();
+    return useQuery({
+      queryKey: ["leads", filters],
+      queryFn: () => ecod.crm.leads.list(filters),
+    });
+  }
+  ```
+- Real-time:
+  ```ts
+  useEffect(() => ecod.on("lead.stage_changed", patcher), [ecod]);
+  ```
+- Empty / loading / error states required for every list view.
+- All form inputs are React Hook Form + Zod.
+
+### 6.7 SDK changes
+
+- Adding a CRM endpoint: implement on server, expose in `@ecodrix/erix-api` namespace, regenerate types, version-bump the package.
+- Frontend escape hatch for unstable endpoints: `ecod.request("POST", "/api/...", body)`.
+
+## 7. Useful Scripts
+
+```bash
+# Lint + format
+pnpm biome:check
+pnpm biome:fix
+
+# Typecheck across workspace
+pnpm -r typecheck
+
+# Run tests
+cd ECOD/server && pnpm test
+cd ECOD/erix-store && pnpm test
+cd ECOD/packages/erix-api && pnpm test
+
+# Build SDKs (publishable artifacts)
+cd ECOD/packages/erix-api && pnpm build:final
+cd ECOD/packages/erix-react && pnpm build:final
+
+# Inspect pricing state of an org
+cd ECOD/server && pnpm tsx scripts/inspect-pricing-state.ts <orgId>
+
+# Apply a one-off migration script
+pnpm tsx scripts/apply-migration.ts
+```
+
+## 8. Testing
+
+- Server: Vitest, colocated `*.test.ts` next to source.
+- ErixStore: Vitest with WAL replay tests.
+- SDK: Vitest with mocked fetch.
+- E2E smoke: `scripts/verify-platform-end-to-end.ts` (extends pricing verify with new completion-spec flows).
+
+For property-based tests use the project's existing PBT setup where present.
+
+## 9. Adding a New Feature — Recipe
+
+1. **Spec first.** Create or extend a spec under `saas/.kiro/specs/<feature>/`. Write `requirements.md` (testable bullets) and `design.md` (concrete tables + routes + UI).
+2. **Schema.** Add tables to `server/src/shared/db/schema/<family>/`. Re-export from the family `index.ts`. Run `pnpm db:generate` + `pnpm db:push` (dev).
+3. **Adapter.** Add methods to `ErixAdapter` types + each implementation (`PostgresAdapter`, `MongoAdapter`, `DualAdapter`).
+4. **Service.** Write the service in `server/src/services/saas/<feature>/`. Take `orgId`. Emit events.
+5. **Routes.** Add to `server/src/routes/<area>/`. Stack: `tenantResolver` → entitlement gate → handler.
+6. **SDK.** Expose in `@ecodrix/erix-api` namespace. Bump package version.
+7. **Frontend.** Add hooks under `saas/src/hooks/`, screens under `saas/src/app/<area>/`, components under `saas/src/components/<area>/`. Use `useEcod()` everywhere.
+8. **Tests.** Server unit tests with `MockAdapter`; smoke test if it changes a critical path.
+9. **Docs.** Update `modules.md` status row. Cross-link from the appropriate PRD section.
+10. **PR.** Title format: `[<area>] <verb> <noun>`. Description includes spec link + test plan.
+
+## 10. Debugging Tips
+
+| Symptom                     | Where to look                                                                                 |
+| --------------------------- | --------------------------------------------------------------------------------------------- |
+| 401 on every API call       | `tenantResolver` — check `apiKey + clientCode` headers; verify org row exists                 |
+| 429 quota errors during dev | Use a non-Free plan for the demo org; check `ecodrix_usage` row                               |
+| AI auto-respond not firing  | Check `org.ai_agent_enabled`, `org.ai_auto_reply`, queue depth on `ai-respond`, Vertex AI ADC |
+| Workflow doesn't trigger    | Confirm `is_active = true` and `trigger_type` matches event; tail `workflow.worker.ts` logs   |
+| ErixStore queue stuck       | `GET http://localhost:6399/queues/<name>/stats`; check WAL for orphaned jobs                  |
+| Mongo adapter 503           | Connection string in `external_db_uri` (decrypted); check `connectionManager` cache           |
+| Drizzle migration fails     | Compare against generated SQL in `migrations/<family>/`; if dev only, drop + push fresh       |
+
+## 11. Conventions Cheat Sheet
+
+| Concern                  | Rule                                                                               |
+| ------------------------ | ---------------------------------------------------------------------------------- |
+| Plan slugs               | `free` · `starter` · `growth` · `scale` · `enterprise`                             |
+| Acquisition channels     | `freelance` · `direct`                                                             |
+| Data modes               | `platform` · `own` · `both`                                                        |
+| External DB types        | `mongodb` · `postgresql`                                                           |
+| Tenant boundary          | `req.org.id` only                                                                  |
+| AI for inbox / workflows | Gemini 2.0 Flash via `@google/genai`                                               |
+| AI for outreach kits     | Claude Sonnet 4.5 via `@anthropic-ai/vertex-sdk`                                   |
+| Cache / queue            | ErixStore (port 6399). Never Redis / BullMQ / ioredis                              |
+| Frontend HTTP            | `@ecodrix/erix-api` only                                                           |
+| Forms                    | React Hook Form + Zod                                                              |
+| Theme                    | Dark navy, `bg-base #0A1628`, `accent-primary #1E7AFF`, `accent-secondary #FF6B1A` |
+
+## 12. PR Etiquette
+
+- Keep PRs scoped (one spec section ≈ one PR).
+- Update relevant docs in this folder when the change is non-trivial (mention which doc in the PR description).
+- Include a screenshot for any UI change.
+- Tag the related spec in the description: `Spec: saas/.kiro/specs/<name>/`.
+- Run `pnpm biome:check` and `pnpm -r typecheck` locally before pushing.
+
+## 13. Where to Ask
+
+- Architecture questions → re-read `00-ARCHITECTURE-BRIEF.md` first; if unclear, raise an issue with the section heading you struggled with.
+- Spec ambiguity → comment on the spec file directly.
+- Code patterns → `IMPLEMENTATION_DETAILS.md`.
+
+Last updated: 2026-05-30 · Cross-references: `saas/.kiro/specs/platform-completion-end-to-end/`, `IMPLEMENTATION_DETAILS.md`.

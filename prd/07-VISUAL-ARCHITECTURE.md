@@ -1,592 +1,395 @@
-# ECODrIx — Visual Architecture & System Diagrams
-**Version:** 1.0 | **Date:** May 2026
+# 07 — Visual Architecture & System Diagrams
 
----
+> Text-mode ASCII diagrams. Six core flows: platform overview, request lifecycle, adapter selection,
+> dual-mode sync, workflow execution, entitlement check, and two-channel onboarding.
 
-## 1. PLATFORM OVERVIEW — Bird's Eye View
-
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                                                                                         │
-│                              ECODrIx PLATFORM ECOSYSTEM                                 │
-│                                                                                         │
-│  ┌─────────────────────────────────────────────────────────────────────────────────┐    │
-│  │                           USER TOUCHPOINTS                                      │    │
-│  │                                                                                 │    │
-│  │   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐      │    │
-│  │   │   ECOD/saas │    │ ECOD/admin  │    │ erix-react  │    │  Mobile PWA │      │    │
-│  │   │   ───────── │    │  ─────────  │    │  ─────────  │    │  ─────────  │      │    │
-│  │   │  Direct User│    │  Agency/You │    │  Embedded   │    │  Field Sales│      │    │
-│  │   │  Self-Serve │    │  Manage For │    │  In Client  │    │  Offline    │      │    │
-│  │   │  Console    │    │  Clients    │    │  Websites   │    │  First      │      │    │
-│  │   └──────┬──────┘    └──────┬──────┘    └──────┬──────┘    └──────┬──────┘      │    │
-│  │          │                    │                   │                  │          │    │
-│  └──────────┼────────────────────┼───────────────────┼──────────────────┼──────────┘    │
-│             │                    │                   │                  │               │
-│             └────────────────────┼───────────────────┼──────────────────┘               │
-│                                  │                   │                                  │
-│                                  ▼                   ▼                                  │
-│  ┌─────────────────────────────────────────────────────────────────────────────────┐    │
-│  │                        @ecodrix/erix-api (SDK Layer)                            │    │
-│  │                                                                                 │    │
-│  │   Isomorphic TypeScript SDK — works in Browser + Node.js + React Native         │    │
-│  │   Auto-retry (3x) │ Rate limit handling │ Socket.io real-time │ Type-safe       │    │
-│  │                                                                                 │    │
-│  │   Namespaces: .crm │ .whatsapp │ .email │ .meet │ .storage │ .agency │          │    │
-│  │               .marketing │ .queue │ .checkout │ .settings │ .health             │    │
-│  │                                                                                 │    │
-│  └──────────────────────────────────────┬──────────────────────────────────────────┘    │
-│                                         │                                               │
-│                                         │ HTTP + WebSocket (auto-negotiated)            │
-│                                         ▼                                               │
-│  ┌─────────────────────────────────────────────────────────────────────────────────┐    │
-│  │                         ECOD/server (Backend Engine)                            │    │
-│  │                                                                                 │    │
-│  │   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐          │    │
-│  │   │   Auth   │  │   CRM    │  │   AI     │  │  Queue   │  │  Real-   │          │    │
-│  │   │  Layer   │  │  Engine  │  │  Engine  │  │  Engine  │  │  time    │          │    │
-│  │   │          │  │          │  │          │  │          │  │  Engine  │          │    │
-│  │   │ saasAuth │  │ Leads    │  │ Claude   │  │ ErixStore│  │ Socket   │          │    │
-│  │   │ coreAuth │  │ Pipeline │  │ Haiku    │  │ Workers  │  │ Pub/Sub  │          │    │
-│  │   │ laieAuth │  │ Messages │  │ Embedding│  │ Scheduler│  │ SSE      │          │    │
-│  │   │ JWT+Key  │  │ Invoice  │  │ Scoring  │  │ Retry    │  │ Rooms    │          │    │
-│  │   └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘          │    │
-│  │        │              │              │              │              │            │    │
-│  └────────┼──────────────┼──────────────┼──────────────┼──────────────┼────────────┘    │
-│           │              │              │              │              │                 │
-│           ▼              ▼              ▼              ▼              ▼                 │
-│  ┌─────────────────────────────────────────────────────────────────────────────────┐    │
-│  │                          DATA & INFRASTRUCTURE LAYER                            │    │
-│  │                                                                                 │    │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │    │
-│  │  │  PostgreSQL  │  │  ErixStore   │  │  External    │  │  Cloud       │         │    │
-│  │  │  (Supabase)  │  │  (port 6399) │  │  APIs        │  │  Services    │         │    │
-│  │  │              │  │              │  │              │  │              │         │    │
-│  │  │  Platform    │  │  Cache       │  │  WhatsApp    │  │  AWS SES     │         │    │
-│  │  │  CRM (erix_*)│  │  Queue       │  │  Claude AI   │  │  Cloudflare  │         │    │
-│  │  │  LAIE        │  │  Locks       │  │  Razorpay    │  │  R2          │         │    │
-│  │  │  Audit Logs  │  │  Pub/Sub     │  │  Google Meet │  │  Render      │         │    │
-│  │  │              │  │  Rate Limit  │  │  Google Maps │  │  Vercel      │         │    │
-│  │  │              │  │  Semantic $  │  │              │  │              │         │    │
-│  │  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘         │    │
-│  │                                                                                 │    │
-│  └─────────────────────────────────────────────────────────────────────────────────┘    │
-│                                                                                         │
-└─────────────────────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 2. REQUEST LIFECYCLE — How a Single API Call Flows
+## 1. Platform Overview
 
 ```
-┌──────────┐     ┌──────────┐     ┌──────────────────────────────────────────────────┐
-│  Client  │     │   SDK    │     │                  ECOD/server                     │
-│  (React) │     │ erix-api │     │                                                  │
-└────┬─────┘     └────┬─────┘     └────┬─────────────────────────────────────────────┘
-     │                 │                │
-     │  useContacts()  │                │
-     │────────────────>│                │
-     │                 │                │
-     │                 │  GET /api/crm/leads                │
-     │                 │  Headers:                          │
-     │                 │    x-api-key: ecod_live_sk_...     │
-     │                 │    x-client-code: CLINIC_ABC       │
-     │                 │───────────────────────────────────>│
-     │                 │                                    │
-     │                 │                ┌───────────────────┤
-     │                 │                │  saasAuth.ts      │
-     │                 │                │  ─────────────    │
-     │                 │                │  1. Extract key   │
-     │                 │                │  2. Lookup org    │
-     │                 │                │     in PostgreSQL │
-     │                 │                │  3. Verify key    │
-     │                 │                │  4. Attach orgId  │
-     │                 │                │     to request    │
-     │                 │                └───────────────────┤
-     │                 │                                    │
-     │                 │                ┌───────────────────┤
-     │                 │                │  Route Handler    │
-     │                 │                │  ─────────────    │
-     │                 │                │  1. Check cache   │
-     │                 │                │     (ErixStore)   │
-     │                 │                │  2. If miss:      │
-     │                 │                │     query PG with │
-     │                 │                │     WHERE org_id  │
-     │                 │                │  3. Set cache     │
-     │                 │                │  4. Return data   │
-     │                 │                └───────────────────┤
-     │                 │                                    │
-     │                 │  { success: true, data: [...] }    │
-     │                 │<───────────────────────────────────│
-     │                 │                                    │
-     │  leads[]        │                                    │
-     │<────────────────│                                    │
-     │                 │                                    │
-     │  Render table   │                                    │
-     │                 │                                    │
+┌──────────────────────────────────────────────────────────────────────────┐
+│                          ECODrIx Platform Surfaces                       │
+│                                                                          │
+│  Direct user             Freelance team        Tenant client website      │
+│  ┌────────────────┐      ┌────────────────┐   ┌────────────────────────┐  │
+│  │ ECOD/saas      │      │ ECOD/admin     │   │ <ErixProvider>         │  │
+│  │ Next.js 15     │      │ Next.js        │   │  @ecodrix/erix-react   │  │
+│  └───────┬────────┘      └───────┬────────┘   └───────────┬────────────┘  │
+│          │ NextAuth              │ CORE_API_KEY           │ apiKey/code   │
+│          └──────────────┬────────┴────────────┬───────────┘               │
+│                         │                     │                           │
+│                         ▼                     ▼                           │
+│              ┌──────────────────────────────────────────┐                 │
+│              │  @ecodrix/erix-api  (TS SDK)             │                 │
+│              │  Browser + Node + React Native           │                 │
+│              │  Auto-retry, rate-limit, Socket.io,      │                 │
+│              │  type-safe, .request() escape hatch      │                 │
+│              └────────────────┬─────────────────────────┘                 │
+│                               │ HTTP + WebSocket                          │
+│                               ▼                                           │
+│  ┌──────────────────────────────────────────────────────────────────┐     │
+│  │                ECOD/server  (Express 5 + Hono)                   │     │
+│  │                                                                  │     │
+│  │  middleware:  tenantResolver  →  entitlement gate  →  handler    │     │
+│  │  service:     getErixAdapter(orgId) → CRM ops                    │     │
+│  │  workers:     whatsapp · broadcast · ai-respond · workflow ·     │     │
+│  │               webhook · sync · invoice · email · subscription    │     │
+│  │  ai:          Gemini 2.0 Flash (inbox) · Claude 4.5 (LAIE kits)  │     │
+│  └──┬───────────┬──────────────────┬────────────────────┬──────────┘     │
+│     │           │                  │                    │                │
+│     ▼           ▼                  ▼                    ▼                │
+│  ┌────────┐ ┌──────────┐  ┌────────────────┐  ┌──────────────────┐        │
+│  │Supabase│ │ ErixStore│  │ Tenant Mongo / │  │ External APIs    │        │
+│  │ PG     │ │ port 6399│  │ Tenant PG      │  │ Meta WA · Vertex │        │
+│  │ecodrix_│ │ Cache    │  │ (data_mode=    │  │ AWS SES · R2     │        │
+│  │erix_   │ │ Queue    │  │  own / both)   │  │ Razorpay · Maps  │        │
+│  │laie_   │ │ Locks    │  │                │  │                  │        │
+│  │store_  │ │ PubSub   │  │                │  │                  │        │
+│  └────────┘ └──────────┘  └────────────────┘  └──────────────────┘        │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
----
-
-## 3. MULTI-TENANT DATA ISOLATION
+## 2. Request Lifecycle
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                         TENANT ISOLATION MODEL                                  │
-├─────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│  ┌─── MODE: "platform" (DEFAULT) ──────────────────────────────────────────┐    │
-│  │                                                                         │    │
-│  │   PostgreSQL (Supabase) — Single Database, Row-Level Isolation          │    │
-│  │                                                                         │    │
-│  │   ┌─────────────────────────────────────────────────────────────────┐   │    │
-│  │   │  erix_leads                                                     │   │    │
-│  │   │  ┌──────────┬──────────────┬───────────┬─────────────────────┐  │   │    │
-│  │   │  │ id       │ org_id       │ firstName │ phone               │  │   │    │
-│  │   │  ├──────────┼──────────────┼───────────┼─────────────────────┤  │   │    │
-│  │   │  │ uuid-1   │ ORG_CLINIC   │ Ravi      │ +91 98765...        │  │   │    │
-│  │   │  │ uuid-2   │ ORG_CLINIC   │ Priya     │ +91 87654...        │  │   │    │
-│  │   │  │ uuid-3   │ ORG_REALTY   │ Amit      │ +91 76543...        │  │   │    │
-│  │   │  │ uuid-4   │ ORG_REALTY   │ Neha      │ +91 65432...        │  │   │    │
-│  │   │  └──────────┴──────────────┴───────────┴─────────────────────┘  │   │    │
-│  │   │                                                                 │   │    │
-│  │   │  Query: SELECT * FROM erix_leads WHERE org_id = 'ORG_CLINIC'    │   │    │
-│  │   │  Result: Only Ravi + Priya (CLINIC's data)                      │   │    │
-│  │   │  ORG_REALTY can NEVER see CLINIC's data                         │   │    │
-│  │   │                                                                 │   │    │
-│  │   └─────────────────────────────────────────────────────────────────┘   │    │
-│  │                                                                         │    │
-│  └─────────────────────────────────────────────────────────────────────────┘    │
-│                                                                                 │
-│  ┌─── MODE: "own" (User's External DB) ────────────────────────────────────┐    │
-│  │                                                                         │    │
-│  │   User provides their own MongoDB or PostgreSQL URI                     │    │
-│  │   We connect on-demand, use OUR schema, store in THEIR database         │    │
-│  │                                                                         │    │
-│  │   ┌──────────────┐         ┌──────────────────────────────────────┐     │    │
-│  │   │  ECODrIx     │ ──────> │  User's Database                     │     │    │
-│  │   │  Server      │ connect │  (mongodb://their-server.com/crm)    │     │    │
-│  │   │              │         │                                      │     │    │
-│  │   │  Uses OUR    │         │  Collections: leads, messages,       │     │    │
-│  │   │  schema defs │         │  templates, broadcasts, pipelines    │     │    │
-│  │   │              │         │  (same structure, their storage)     │     │    │
-│  │   └──────────────┘         └──────────────────────────────────────┘     │    │
-│  │                                                                         │    │
-│  └─────────────────────────────────────────────────────────────────────────┘    │
-│                                                                                 │
-│  ┌─── MODE: "both" (Hybrid) ───────────────────────────────────────────────┐    │
-│  │                                                                         │    │
-│  │   ┌──────────────┐    Write    ┌──────────────┐                         │    │
-│  │   │  Our Supabase│ <─────────  │  Server      │                         │    │
-│  │   │  (Primary)   │             │              │                         │    │
-│  │   └──────────────┘             │              │                         │    │
-│  │                                │              │                         │    │
-│  │   ┌──────────────┐  Async Sync │              │                         │    │
-│  │   │  Their DB    │ <─────────  │  ErixStore   │                         │    │
-│  │   │  (Secondary) │   Queue     │  Worker      │                         │    │ 
-│  │   └──────────────┘             └──────────────┘                         │    │
-│  │                                                                         │    │
-│  └─────────────────────────────────────────────────────────────────────────┘    │
-│                                                                                 │
-└─────────────────────────────────────────────────────────────────────────────────┘
+Client (React)             SDK (@ecodrix/erix-api)              ECOD/server
+─────────────              ────────────────────────              ───────────
+
+useLeads(filters) ────► ecod.crm.leads.list(filters)
+                            │
+                            │   GET /api/crm/leads?status=new
+                            │   x-api-key: ecod_live_sk_…
+                            │   x-client-code: CLINIC_ABC
+                            ▼
+                                                       ┌──── tenantResolver ─────┐
+                                                       │ load ecodrix_organizations
+                                                       │ by (apiKey, clientCode)
+                                                       │ attach req.org
+                                                       └────────────┬────────────┘
+                                                                    ▼
+                                                       ┌──── entitlement gate ───┐
+                                                       │ (none for read; quota   │
+                                                       │  on writes)             │
+                                                       └────────────┬────────────┘
+                                                                    ▼
+                                                       ┌──── handler ────────────┐
+                                                       │ adapter = getErixAdapter│
+                                                       │ const items = await     │
+                                                       │   adapter.leads.list(   │
+                                                       │     req.org.id, filters)│
+                                                       │ return { success, data }│
+                                                       └────────────┬────────────┘
+                                                                    ▼
+                                              ┌── PG read scoped by org_id ──┐
+                                              │ SELECT … WHERE org_id = $1   │
+                                              └──────────────────────────────┘
+
+useQuery cache ◄──── Lead[] ◄──── { success, data: [...] }
 ```
 
----
-
-## 4. AI ENGINE — How AI Operates Across the Platform
+## 3. Adapter Selection (Multi-Source Data Layer)
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        AI ENGINE ARCHITECTURE                           │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  TRIGGERS (Events that activate AI):                                    │
-│                                                                         │
-│  WhatsApp msg ──┐                                                       │
-│  Lead created ──┤                                                       │
-│  Stage change ──┼──> AI BRAIN ──> ACTIONS                               │
-│  No reply 3d ───┤       │                                               │
-│  Deal won ──────┤       │                                               │
-│  Scheduled ─────┘       ▼                                               │
-│                                                                         │
-│  ┌─── AI BRAIN (per org) ──────────────────────────────────────────┐    │
-│  │                                                                 │    │
-│  │  ┌────────────┐  ┌────────────┐  ┌────────────┐                 │    │
-│  │  │  CONTEXT   │  │   MODEL    │  │  MEMORY    │                 │    │
-│  │  │            │  │            │  │            │                 │    │
-│  │  │ Org prompt │  │ Sonnet 4   │  │ Semantic $ │                 │    │
-│  │  │ Lead data  │  │ (complex)  │  │ (ErixStore)│                 │    │
-│  │  │ History    │  │            │  │            │                 │    │
-│  │  │ Industry   │  │ Haiku      │  │ Learning   │                 │    │
-│  │  │ Custom     │  │ (fast/cheap│  │ Store      │                 │    │
-│  │  │ rules      │  │  classify) │  │            │                 │    │
-│  │  └────────────┘  └────────────┘  └────────────┘                 │    │
-│  │                                                                 │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│                                                                         │
-│  ACTIONS (What AI produces):                                            │
-│                                                                         │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                   │
-│  │ Auto-Respond │  │ Qualify Lead │  │ Score Lead   │                   │
-│  │ (WhatsApp)   │  │ (ask Qs)     │  │ (0-100)      │                   │
-│  └──────────────┘  └──────────────┘  └──────────────┘                   │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                   │
-│  │ Follow-up    │  │ Summarize    │  │ Morning      │                   │
-│  │ (generate)   │  │ (compress)   │  │ Briefing     │                   │
-│  └──────────────┘  └──────────────┘  └──────────────┘                   │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                   │
-│  │ Smart Reply  │  │ Predict      │  │ Coach        │                   │
-│  │ (3 options)  │  │ (forecast)   │  │ (feedback)   │                   │
-│  └──────────────┘  └──────────────┘  └──────────────┘                   │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
+                  getErixAdapter(orgId)
+                          │
+                          ▼
+                  load ecodrix_organizations
+                          │
+            ┌──────┬──────┴──────┬──────┐
+            │      │             │      │
+   data_mode=     data_mode=    data_mode=  data_mode=
+   "platform"    "own"         "own"        "both"
+                + mongodb     + postgresql
+            │      │             │           │
+            ▼      ▼             ▼           ▼
+  ┌──────────────┐ ┌──────────────┐ ┌─────────────────┐ ┌──────────────────┐
+  │ Postgres     │ │ MongoAdapter │ │ Postgres        │ │ DualAdapter       │
+  │ Adapter      │ │ wraps        │ │ Adapter         │ │ Postgres primary  │
+  │ (default     │ │ getCrmModels │ │ (per-tenant     │ │ + queue erix-sync │
+  │  pool)       │ │ (clientCode) │ │  pool)          │ │ to mirror to ext  │
+  └──────────────┘ └──────────────┘ └─────────────────┘ └──────────────────┘
+            │              │                │                    │
+            ▼              ▼                ▼                    ▼
+       Supabase PG   Tenant Mongo    Tenant PG (BYO)       Supabase PG  ─┐
+       erix_*        (legacy +       erix_* schema         +(tenant DB   │
+                     freelance)      our codebase          via worker)   │
+                                                                          │
+       (factory caches adapter per orgId for 60s; invalidate on change)   │
+                                                                          ▼
+                                                      Tenant DB (eventual consistency)
 ```
 
----
-
-## 5. ERIXSTORE — Infrastructure Engine
+## 4. Dual-Mode Sync (data_mode = "both")
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    ErixStore (port 6399)                                │
-│                    Single-threaded in-memory engine                     │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  ┌─── SERVICES ─────────────────────────────────────────────────────┐   │
-│  │                                                                  │   │
-│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐     │   │
-│  │  │  Cache  │ │  Queue  │ │  Locks  │ │ Pub/Sub │ │  Rate   │     │   │
-│  │  │  LRU    │ │  V2     │ │  Dist.  │ │  Event  │ │  Limit  │     │   │
-│  │  │  512MB  │ │Priority │ │  Mutex  │ │  Bus    │ │ Sliding │     │   │
-│  │  │  Tags   │ │  DLQ    │ │  R/W    │ │  SSE    │ │ Window  │     │   │
-│  │  │  SWR    │ │  Retry  │ │  Sema   │ │         │ │         │     │   │
-│  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘     │   │
-│  │                                                                  │   │
-│  │  ┌──────────┐ ┌─────────┐ ┌──────────┐ ┌─────────┐               │   │
-│  │  │Semantic  │ │ Anomaly │ │  Usage   │ │  Data   │               │   │
-│  │  │ Cache    │ │Detector │ │  Meter   │ │  Store  │               │   │
-│  │  │  AI      │ │ Z-score │ │Per-tenant│ │ KV/Hash │               │   │
-│  │  │Embeddings│ │ Alerts  │ │ Metrics  │ │List/Set │               │   │
-│  │  └──────────┘ └─────────┘ └──────────┘ └─────────┘               │   │
-│  │                                                                  │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                         │
-│  ┌─── PERSISTENCE (PostgreSQL) ─────────────────────────────────────┐   │
-│  │  store_job_wal      → Zero job loss on crash (WAL replay)        │   │
-│  │  store_snapshots    → Full state dump every 5 min (keep last 5)  │   │
-│  │  store_usage_events → Per-tenant metering data                   │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                         │
-│  ┌─── TRANSPORT ────────────────────────────────────────────────────┐   │
-│  │  HTTP (Express)     → Standard REST API                          │   │
-│  │  WebSocket (ws)     → Binary MessagePack (lowest latency)        │   │
-│  │  Auto-negotiation   → Client SDK picks best available            │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
+   API request (write)
+           │
+           ▼
+   ┌──────────────────────────────┐
+   │ DualAdapter.leads.create     │
+   │   await pg.leads.create(...) │  ◄─── canonical write
+   │   if (success) {              │
+   │     erixStore.queue.add(      │
+   │       "erix-sync",            │
+   │       {                       │
+   │         orgId,                │
+   │         operation: "lead.create",
+   │         payload: createdLead, │
+   │         externalDbType,       │
+   │         externalDbUri,        │
+   │       },                      │
+   │       { attempts: 5,          │
+   │         backoff: exp(2000) }  │
+   │     )                         │
+   │   }                           │
+   └─────────────┬────────────────┘
+                 │
+                 ▼
+        ┌────────────────────┐                ┌─────────────────────┐
+        │ erix-sync queue    │ ─── claim ──►  │ sync.worker.ts       │
+        │ (ErixStore)        │                │ - getExternalConn    │
+        └────────────────────┘                │ - mirror op          │
+                                              │ - on fail: retry/DLQ │
+                                              │ - emit metrics       │
+                                              └──────────┬──────────┘
+                                                         ▼
+                                              Tenant external DB write
+                                                         │
+                                                         ▼
+                                              ErixStore Pub/Sub:
+                                              channel: erix-sync-alerts
+                                              (divergence alerts)
 ```
 
----
-
-## 6. INVOICE FLOW — End-to-End
+## 5. Visual Workflow Execution
 
 ```
-┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐
-│  Deal   │    │ Invoice │    │ Payment │    │WhatsApp │    │  Lead   │
-│  Won    │───>│ Created │───>│  Link   │───>│  Sent   │───>│  Pays   │
-│         │    │         │    │ (Razorpay)   │         │    │         │
-└─────────┘    └─────────┘    └─────────┘    └─────────┘    └────┬────┘
-                                                                  │
-                                                                  ▼
-┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐
-│ Webhook │    │ Invoice │    │Activity │    │  Notify │    │ Revenue │
-│ Fires   │───>│ Marked  │───>│ Logged  │───>│  Owner  │───>│Dashboard│
-│(Razorpay)    │  PAID   │    │         │    │         │    │ Updated │
-└─────────┘    └─────────┘    └─────────┘    └─────────┘    └─────────┘
+DOMAIN EVENT EMITTED  (e.g. lead.created from CRM service)
+        │
+        ▼
+emit({ type, orgId, ... }) ─►  EventBus
+        │                           │
+        │                           ├─►  in-process listeners
+        │                           │   (notifications, scoring update)
+        │                           │
+        │                           ├─►  triggerWorkflows
+        │                           │   SELECT erix_workflows
+        │                           │     WHERE org_id, is_active, trigger_type
+        │                           │   for each match:
+        │                           │     erixStore.queue.add(
+        │                           │       "workflow-execute",
+        │                           │       { workflowId, orgId, triggerData }
+        │                           │     )
+        │                           │
+        │                           ├─►  dispatchWebhooks
+        │                           │   (when erix_webhooks ships)
+        │                           │
+        │                           └─►  pubsub.publish(`org:${orgId}`, event)
+        │                                (UI receives via Socket.io)
+        ▼
+workflow.worker.ts
+   ├── load erix_workflows row
+   ├── walk graph from trigger node
+   ├── per node:
+   │     - condition → branch (yes/no edge)
+   │     - action    → execute (send WA, AI respond, move stage, ...)
+   │     - wait      → schedule resume via queue.delay
+   │     - ai        → call Gemini, branch on result
+   ├── append to erix_workflow_runs.node_results
+   └── on completion: status="completed", emit progress event
 ```
 
----
-
-## 7. AUTOMATION EXECUTION — Workflow Engine
+## 6. Entitlement Check
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    WORKFLOW EXECUTION ENGINE                            │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  EVENT OCCURS                                                           │
-│       │                                                                 │
-│       ▼                                                                 │
-│  ┌─────────────────┐                                                    │
-│  │ Check Active    │  "Any workflows match this trigger?"               │
-│  │ Workflows       │                                                    │
-│  └────────┬────────┘                                                    │
-│           │ Yes                                                         │
-│           ▼                                                             │
-│  ┌─────────────────┐                                                    │
-│  │ Enqueue Job     │  store.queueV2.push("workflow-execute", {...})     │
-│  │ (ErixStore)     │                                                    │
-│  └────────┬────────┘                                                    │
-│           │                                                             │
-│           ▼                                                             │
-│  ┌─────────────────┐                                                    │
-│  │ Worker Claims   │  ErixWorker polls queue, claims job                │
-│  │ Job             │                                                    │
-│  └────────┬────────┘                                                    │
-│           │                                                             │
-│           ▼                                                             │
-│  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │                    NODE GRAPH WALKER                             │   │
-│  │                                                                  │   │
-│  │  [Trigger] ──> [Condition] ──> [Action] ──> [Wait] ──> [Action]  │   │
-│  │                     │                                            │   │
-│  │                     │ (else branch)                              │   │
-│  │                     └──> [Action] ──> [End]                      │   │
-│  │                                                                  │   │
-│  │  Each node:                                                      │   │
-│  │    1. Execute logic (send msg, call AI, check condition)         │   │
-│  │    2. Log result to erix_workflow_runs.nodeResults               │   │
-│  │    3. Update progress: store.queueV2.updateProgress(jobId, %)    │   │
-│  │    4. Resolve next node(s) based on edges + result               │   │
-│  │                                                                  │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│           │                                                             │
-│           ▼                                                             │
-│  ┌─────────────────┐                                                    │
-│  │ Mark Complete   │  Update workflow_runs.status = "completed"         │
-│  │ + Notify        │  Publish event via Socket.io                       │
-│  └─────────────────┘                                                    │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
+                  POST /api/whatsapp/send  { to, text }
+                          │
+                          ▼
+            ┌── tenantResolver ──────────────────────────────┐
+            │ req.org = ecodrix_organizations row            │
+            └────────────────────┬───────────────────────────┘
+                                 ▼
+            ┌── createQuotaMiddleware({                       │
+            │     service: "erix",                            │
+            │     feature: "whatsappMessages",                │
+            │     countFn: (req) => req.body.recipients?.length ?? 1
+            │   })                                            │
+            │                                                 │
+            │   const ent = entitlementService.get(orgId)     │
+            │   const used = SELECT count FROM ecodrix_usage  │
+            │     WHERE org_id, service, feature, periodStart │
+            │   const remaining = limit - used                │
+            │                                                 │
+            │   if (remaining < count) {                      │
+            │     return 429 {                                │
+            │       error: "QUOTA_EXCEEDED",                  │
+            │       feature: "erix.whatsappMessages",         │
+            │       remaining: 0, upgradeUrl                  │
+            │     }                                           │
+            │   }                                             │
+            │                                                 │
+            │   res.locals.consumeQuota = () =>               │
+            │     incrementUsage(...)                         │
+            └────────────────────┬───────────────────────────┘
+                                 ▼
+                 handler runs operation
+                 if successful:
+                   await res.locals.consumeQuota()
+                   (atomic INSERT … ON CONFLICT … DO UPDATE)
 ```
 
----
-
-## 8. CLIENT ACQUISITION — Two Paths, One Destination
+For boolean gates (`requireFeature("erix.broadcasts")`):
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                                                                         │
-│  PATH A: SERVICE (You manage)          PATH B: DIRECT (Self-serve)      │
-│                                                                         │
-│  ┌─────────────┐                       ┌─────────────┐                  │
-│  │ Client pays │                       │ User visits │                  │
-│  │ setup fee   │                       │ ecodrix.com │                  │
-│  └──────┬──────┘                       └──────┬──────┘                  │
-│         │                                     │                         │
-│         ▼                                     ▼                         │
-│  ┌─────────────┐                       ┌─────────────┐                  │
-│  │ You create  │                       │ User clicks │                  │
-│  │ from Admin  │                       │ "Register"  │                  │
-│  │ panel       │                       │             │                  │
-│  └──────┬──────┘                       └──────┬──────┘                  │
-│         │                                      │                        │
-│         ▼                                      ▼                        │
-│  ┌─────────────┐                       ┌──────────────┐                 │
-│  │ POST /api/  │                       │ POST /api/   │                 │
-│  │ clients     │                       │ auth/register│                 │
-│  │ (core key)  │                       │ (public)     │                 │
-│  └──────┬──────┘                       └──────┬───────┘                 │
-│         │                                     │                         │
-│         └──────────────────┬──────────────────┘                         │
-│                            │                                            │
-│                            ▼                                            │
-│              ┌──────────────────────────┐                               │
-│              │  SAME RESULT:            │                               │
-│              │                          │                               │
-│              │  • Organization record   │                               │
-│              │  • API key generated     │                               │
-│              │  • Client code assigned  │                               │
-│              │  • Plan attached         │                               │
-│              │  • Data isolated         │                               │
-│              │  • SDK access ready      │                               │
-│              │                          │                               │
-│              └──────────────────────────┘                               │
-│                            │                                            │
-│              ┌─────────────┼─────────────┐                              │
-│              │             │             │                              │
-│              ▼             ▼             ▼                              │
-│       ┌───────────┐ ┌───────────┐ ┌───────────┐                         │
-│       │  CRM      │ │ WhatsApp  │ │ Invoicing │                         │
-│       │  Active   │ │  Active   │ │  Active   │                         │
-│       └───────────┘ └───────────┘ └───────────┘                         │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
+   features = mergedPlanFeatures(plan, addOns)
+   enabled = path.split(".").reduce((o,k)=>o?.[k], features)
+   if (!enabled) return 402 { error: "FEATURE_NOT_AVAILABLE", upgradeUrl }
 ```
 
----
+## 7. Two-Channel Onboarding
 
-## 9. EMBEDDABLE SDK — How @ecodrix/erix-react Works
+```
+  PATH A — DIRECT (self-serve)         PATH B — FREELANCE (managed)
+  ─────────────────────────────         ────────────────────────────
+
+  user visits ecodrix.com               operator opens ECOD/admin
+        │                                       │
+        ▼                                       ▼
+  /auth/signup form                       "Add client" form (with optional
+        │                                  Provision Mongo toggle, plan picker)
+        ▼                                       │
+  POST /api/auth/register                       ▼
+  (public, public registration spec)      POST /api/admin/clients
+        │                                  (CORE_API_KEY)
+        ▼                                       │
+  bcrypt password                               ▼
+  INSERT ecodrix_users                    INSERT legacy mongoose Client
+  INSERT ecodrix_organizations            (existing infrastructure)
+    {                                           │
+      acquisition_channel: "direct",            ▼
+      data_mode: "platform",            if provisionMongo:
+      client_code, api_key,               provisionMongoForClient(clientId)
+      plan_id: free                       returns Atlas connection string
+    }                                           │
+  INSERT ecodrix_members owner                  ▼
+  subscriptionService.createFreeSubscription
+                                          INSERT ecodrix_organizations
+                                            {
+                                              acquisition_channel: "freelance",
+                                              data_mode: "own",
+                                              external_db_type: "mongodb",
+                                              external_db_uri: encrypt(uri),
+                                              client_code = client.clientCode,
+                                              api_key     = client.apiKey,
+                                              plan_id     = chosen
+                                            }
+        │                                       │
+        └─────────────┬──────────────────────────┘
+                      │
+                      ▼
+            ┌──────────────────────────────┐
+            │ SAME RESULT FROM HERE ON     │
+            │  - org row + isolated data   │
+            │  - SDK keys ready            │
+            │  - plan + entitlements live  │
+            │  - audit log entry           │
+            │  - WhatsApp/AI configurable  │
+            │  - getErixAdapter routes     │
+            │    queries to right backend  │
+            └──────────────────────────────┘
+                      │
+                      ▼
+                 onboarding wizard
+                 (different defaults per channel —
+                  freelance pre-fills more from
+                  admin's input)
+```
+
+## 8. AI Auto-Respond Path
+
+```
+Inbound WhatsApp message (Meta webhook)
+        │
+        ▼
+  /api/whatsapp/webhook
+  ├─ verify Meta signature
+  ├─ resolve org via phone_id → tenantResolver
+  ├─ INSERT erix_messages, erix_conversations.upsert
+  ├─ emit({ type: "message.received", ... })
+  └─ if org.ai_agent_enabled && org.ai_auto_reply:
+        erixStore.queue.add("ai-respond", { orgId, conversationId, messageFrom, body })
+
+ai.worker.ts
+   ├─ semantic cache check (ErixStore semantic.search at 0.92)
+   │     hit?  return cached text, conf=0.95, source=cache
+   ├─ build context (history, lead profile, org config)
+   ├─ build system prompt + user message
+   ├─ callGemini(model="gemini-2.0-flash", maxOutput=300)
+   │     [retry once on DEADLINE_EXCEEDED]
+   ├─ estimateConfidence(text, body, historyDepth)
+   ├─ semantic.set for future cache hits (TTL 24h)
+   ├─ if conf >= org.ai_confidence_threshold:
+   │     send via WhatsApp (quota gate erix.whatsappMessages)
+   │     INSERT erix_lead_activities { type: "ai_auto_responded",
+   │                                    metadata: { confidence, model } }
+   └─ else:
+         erixStore.pubsub.publish(`inbox:${orgId}`,
+            { type: "ai_suggestion", conversationId, suggestion, confidence })
+         UI shows orange suggestion card; user can Use / Edit & Send / Dismiss
+```
+
+## 9. Embeddable SDK in Tenant Site
+
+```
+tenant-site.com (built by agency)
+└── React app
+    └── <ErixProvider apiKey clientCode>
+        │     // builds ECODrIxAPI, fetches entitlements,
+        │     // joins Socket.io rooms
+        ▼
+        <ErixContainer density="compact">
+        │     // CSS-variable scoped, no body class
+        ▼
+        <ErixDashboard />     // full module router
+        ├── /erix/inbox       (WhatsAppInbox)
+        ├── /erix/contacts    (ContactsTable + Sheet)
+        ├── /erix/pipeline    (KanbanBoard)
+        ├── /erix/automation  (WorkflowCanvas — gated by plan)
+        └── /erix/editor      (RichTextEditor pro features — gated)
+                                 └── plan check via useEntitlements()
+                                     - editor.collaboration -> Growth+
+                                     - editor.comments      -> Starter+
+                                     - editor.aiCalls       -> quota
+```
+
+The provider shows `<UpgradePrompt feature="path" />` inline when a feature is gated.
+
+## 10. ErixStore Internals
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
+│                  ErixStore (port 6399, single-threaded engine)         │
 │                                                                        │
-│  CLIENT'S WEBSITE (e.g. myclinic.com)                                  │
+│  Services (all in-memory, persisted to PG)                             │
+│   Cache (LRU 512MB · tags · stale-while-revalidate)                    │
+│   Queue v2 (priority · DLQ · retry · heartbeat · tenant fairness)      │
+│   Locks (mutex · R/W · semaphore · deadlock detection)                 │
+│   Pub/Sub (event bus · SSE · room-based)                               │
+│   Rate Limit (sliding window per key)                                  │
+│   Anomaly Detector (Z-score alerts → erix-alerts channel)              │
+│   Semantic Cache (Google embeddings · 0.92 threshold)                  │
+│   Usage Meter (per-tenant counters → flushed to ecodrix_usage)         │
+│   Pipeline batching (multi-op atomic)                                  │
 │                                                                        │
-│  ┌───────────────────────────────────────────────────────────────────┐ │
-│  │  Their React App                                                  │ │
-│  │                                                                   │ │
-│  │  ┌─── ErixProvider (apiKey + clientCode) ──────────────────────┐  │ │
-│  │  │                                                             │  │ │
-│  │  │  ┌─── ErixContainer (style isolation) ──────────────────┐   │  │ │
-│  │  │  │                                                      │   │  │ │
-│  │  │  │  ┌──────────────────────────────────────────────────┐│   │  │ │
-│  │  │  │  │         ErixDashboard                            ││   │  │ │
-│  │  │  │  │                                                  ││   │  │ │
-│  │  │  │  │  ┌────────┐ ┌────────┐ ┌─────────┐ ┌────────┐    ││   │  │ │
-│  │  │  │  │  │  CRM   │ │WhatsApp│ │Analytics│ │ Editor │    ││   │  │ │
-│  │  │  │  │  │ Module │ │ Module │ │ Module  │ │ Module │    ││   │  │ │
-│  │  │  │  │  └────────┘ └────────┘ └─────────┘ └────────┘    ││   │  │ │
-│  │  │  │  │                                                  ││   │  │ │
-│  │  │  │  └──────────────────────────────────────────────────┘│   │  │ │
-│  │  │  │                                                      │   │  │ │
-│  │  │  └──────────────────────────────────────────────────────┘   │  │ │
-│  │  │                                                             │  │ │
-│  │  └─────────────────────────────────────────────────────────────┘  │ │
-│  │                                                                   │ │
-│  └───────────────────────────────────────────────────────────────────┘ │
+│  Persistence                                                           │
+│   store_job_wal       — write-ahead log, replayed on boot              │
+│   store_snapshots     — full state, every 5 min, last 5 retained       │
+│   store_usage_events  — flushed pre-aggregation                         │
 │                                                                        │
-│  HOW IT WORKS:                                                         │
-│  1. Client installs: pnpm add @ecodrix/erix-react @ecodrix/erix-api    │
-│  2. Wraps with ErixProvider (passes apiKey + clientCode)               │
-│  3. Components render — SDK handles all API calls internally           │
-│  4. Backend validates: does this org's plan allow this feature?        │
-│  5. Style isolation: ErixContainer prevents CSS conflicts              │
-│  6. Real-time: Socket.io connects automatically                        │
-│  7. Offline: operations queue locally, sync on reconnect               │
-│                                                                        │
+│  Transport                                                             │
+│   HTTP (Express)         — REST API                                    │
+│   WebSocket (binary MessagePack) — lowest-latency                      │
+│   Auto-negotiated by client SDK                                        │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
----
-
-## 10. DEPLOYMENT TOPOLOGY
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        PRODUCTION DEPLOYMENT                            │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  ┌─── VERCEL ───────────────────────────────────────────────────────┐   │
-│  │  ECOD/saas    → console.ecodrix.com                              │   │
-│  │  ECOD/admin   → admin.ecodrix.com (internal)                     │   │
-│  │  Edge Functions → Middleware (auth redirect, feature gates)      │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                         │
-│  ┌─── RENDER ───────────────────────────────────────────────────────┐   │
-│  │  ECOD/server     → api.ecodrix.com (Web Service, $25/mo)         │   │
-│  │  ECOD/erix-store → internal:6399 (Private Service, $7/mo)        │   │
-│  │  Worker process  → Background Worker ($7/mo)                     │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                         │
-│  ┌─── SUPABASE ─────────────────────────────────────────────────────┐   │
-│  │  PostgreSQL 15   → db.[project].supabase.co                      │   │
-│  │  PgBouncer       → Connection pooling (400 connections)          │   │
-│  │  Auto-backups    → Daily, point-in-time recovery                 │   │
-│  │  Dashboard       → SQL editor, table viewer, logs                │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                         │
-│  ┌─── CLOUDFLARE ───────────────────────────────────────────────────┐   │
-│  │  R2 Storage      → cdn.ecodrix.com (media, PDFs, uploads)        │   │
-│  │  DNS             → ecodrix.com routing                           │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                         │
-│  ┌─── AWS ──────────────────────────────────────────────────────────┐   │
-│  │  SES (ap-south-1) → Email delivery (50K/day)                     │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                         │
-│  Monthly Cost: ~$130 (supports 500+ orgs)                               │
-│  Revenue at 500 orgs: ~$2,400/mo → 18x margin                           │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 11. COMPETITIVE MOAT — Visual
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                                                                         │
-│  WHAT COMPETITORS HAVE:          WHAT ECODrIx HAS:                      │
-│                                                                         │
-│  Interakt:                       ECODrIx:                               │
-│  ┌──────────┐                    ┌──────────┐                           │
-│  │ WhatsApp │                    │ WhatsApp │                           │
-│  │ Messages │                    │ + CRM    │                           │
-│  └──────────┘                    │ + AI     │                           │
-│                                  │ + Invoice│                           │
-│  Zoho:                           │ + LAIE   │                           │
-│  ┌──────────┐                    │ + Auto   │                           │
-│  │ CRM      │                    │ + SDK    │                           │
-│  │ (email)  │                    │ + Store  │                           │
-│  │ Complex  │                    └──────────┘                           │
-│  │ Expensive│                                                           │
-│  └──────────┘                    ALL IN ONE. ₹2-12k/mo.                 │
-│                                  WhatsApp-first. AI-native.             │
-│  Zapier:                         Built for India.                       │
-│  ┌───────────┐                                                          │
-│  │ Automation│                                                          │
-│  │ (generic) │                                                          │
-│  │ Separate  │                                                          │
-│  │ tool      │                                                          │
-│  └───────────┘                                                          │
-│                                                                         │
-│  6 MOATS:                                                               │
-│  ━━━━━━━━                                                               │
-│  1. ErixStore (own infra — no Redis bills)                              │
-│  2. @ecodrix/erix-react (embeddable — network effect)                   │
-│  3. LAIE (AI intelligence — unique data)                                │
-│  4. WhatsApp+CRM+Invoice (one flow — integration depth)                 │
-│  5. Visual automation (sticky — users invest time)                      │
-│  6. Service channel (training data — AI gets smarter)                   │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 12. REVENUE ENGINE — How Money Flows
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                                                                         │
-│  ┌─── SERVICE CHANNEL ──────────────────────────────────────────────┐   │
-│  │                                                                  │   │
-│  │  Client pays ₹10k setup ──> You configure everything             │   │
-│  │  Client pays ₹3k/month ──> Recurring revenue                     │   │
-│  │  50 clients × ₹3k = ₹1.5L/month                                  │   │
-│  │                                                                  │   │
-│  │  BONUS: Every client = training data for AI                      │   │
-│  │  After 50 clients: AI knows 20 industries                        │   │
-│  │                                                                  │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                         │
-│  ┌─── DIRECT CHANNEL ──────────────────────────────────────────────┐    │
-│  │                                                                 │    │
-│  │  User signs up ──> Free plan (lead magnet)                      │    │
-│  │  User upgrades ──> ₹2.4-12.3k/month                             │    │
-│  │  500 users × ₹4k ARPU = ₹20L/month                              │    │
-│  │                                                                 │    │
-│  │  BONUS: Self-serve = zero marginal cost per user                │    │
-│  │                                                                 │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│                                                                         │
-│  ┌─── SDK CHANNEL ─────────────────────────────────────────────────┐    │
-│  │                                                                 │    │
-│  │  Developer installs @ecodrix/erix-react                         │    │
-│  │  Their users use ECODrIx features                               │    │
-│  │  Usage-based billing (per message, per contact)                 │    │
-│  │                                                                 │    │
-│  │  BONUS: Network effect — more devs = more users = more data     │    │
-│  │                                                                 │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│                                                                         │
-│  YEAR 1 TARGET:                                                         │
-│  Service: ₹1.5L/mo + ₹5L setup = ₹23L/year                              │
-│  Direct:  ₹20L/mo = ₹2.4Cr/year                                         │
-│  TOTAL:   ~₹2.6 Crore ARR                                               │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+Last updated: 2026-05-30 · Cross-references: `saas/.kiro/specs/visual-automation-builder/`, `saas/.kiro/specs/platform-completion-end-to-end/`, `saas/.kiro/specs/ai-auto-respond/`, `saas/.kiro/specs/platform-pricing-entitlements/`.
