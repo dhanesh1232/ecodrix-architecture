@@ -20,7 +20,8 @@
 │   ecodrix_cloud_storage + ecodrix_storage_events (Phase 10),     │
 │   ecodrix_organizations.{tags,labels,business_email,...}         │
 │       (Phase 11), ecodrix_blogs (Phase 12),                      │
-│   ecodrix_corporate_leads (Phase 13)                             │
+│   ecodrix_corporate_leads (Phase 13),                            │
+│   ecodrix_blueprints (Phase 3)                                   │
 │                                                                  │
 │  All `ecodrix_*` tables.                                         │
 │  All admin / control-plane reads & writes go here.               │
@@ -588,7 +589,7 @@ for (const doc of docs) {
 }
 ```
 
-### Phase 13 — `Lead` (services) → `ecodrix_corporate_leads` (✅ shipped — final phase)
+### Phase 13 — `Lead` (services) → `ecodrix_corporate_leads` (✅ shipped)
 
 The platform's own sales pipeline (apify-sourced + corporate marketing form). 7 callers — 1 admin route + 6 cron jobs. Distinct from the per-tenant `Lead` model which lives in each tenant's isolated Mongo DB.
 
@@ -674,6 +675,42 @@ for (const doc of docs) {
 ```
 
 After this phase the corporate `Lead` collection can be dropped from the legacy `services` Mongo database — it has zero readers.
+
+### Phase 3 — `Blueprint` → `ecodrix_blueprints` (✅ shipped — final phase)
+
+Originally deferred pending live-vs-shelfware analysis. Confirmed live: `OrchestratorService.deployBlueprint` actively clones blueprint content into tenant Mongo on admin onboarding flows. Migrated rather than deleted.
+
+**Schema** — `shared/db/schema/platform/blueprints.ts`:
+
+- One row per template
+- `content` is a single JSONB column with the legacy nested shape (`{ pipelines, automationRules, leadFields, scoringConfigs }`). Inner arrays were `Mixed` on Mongo — JSONB preserves the flexibility because blueprint content evolves with every new automation feature
+- `category` enum-checked at the SQL level
+- Partial indexes on `is_public` and `owner_agency_id`, plus a flat `category` index
+
+**Migration** — `0012_blueprints.sql`:
+
+```bash
+pnpm db:migrate:blueprints
+pnpm type
+```
+
+**Helper service** — `services/admin/blueprints.service.ts`:
+
+- `BlueprintRecord` with `_id` alias, full `content` access
+- `getBlueprint`, `listBlueprints({ category, publicOnly, ownerAgencyId, order, limit })`, `createBlueprint`, `updateBlueprint`, `deleteBlueprint`
+
+**Refactored**:
+
+- `routes/platform/admin/agency.routes.ts` — `GET /blueprints` and `POST /blueprints` use `listBlueprints` / `createBlueprint`. The previous `Staff` routes were already removed (vestigial). `dbConnect("services")` calls dropped from the file.
+- `services/global/orchestrator.service.ts` — `deployBlueprint` reads via `getBlueprint(blueprintId)`. The clone logic against tenant Mongo (`Pipeline.create`, `PipelineStage.create`, `AutomationRule.create`) is unchanged — JSONB content shape mirrors the legacy embedded sub-doc.
+
+**Removed**:
+
+- `model/global/blueprint.model.ts` (entire file)
+- `model/global/staff.model.ts` (entire file — vestigial agency org-chart)
+- `IBlueprint` and `IStaff` ambient declarations
+- The empty `model/global/`, `model/queue/`, `model/clients/`, `model/services/`, `model/common/`, `model/laie/` directories
+- Mongo `Job` model (`model/queue/job.model.ts`) and the queue inspector routes (`routes/erix/queue.routes.ts` + `GET /jobs/status/:jobId`) — replaced by ErixStore sidecar; live queue-stats surfacing is its own workstream
 
 ### Final state — Platform-Mongo deprecation complete
 
