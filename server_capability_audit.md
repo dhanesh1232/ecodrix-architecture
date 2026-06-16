@@ -4,6 +4,8 @@
 
 > **Headline:** ECODrIx is **~75–85% built** against the vision. The three products and Store are real and deep; the gaps are concentrated in **Connect-payments**, the **credentialed client portal**, **Storage external delivery**, **Voice (not started)**, and **automation-engine consolidation** (tech debt). Nothing here requires a rebuild — these are finish-and-harden items.
 
+> **🟢 PROGRESS UPDATE (June 2026).** Acting on this audit: **G1 (Connect-Payments)** and **G2 (credentialed client portal)** are now **shipped + migrated**; **G3 (automation consolidation)** has a complete spec (`.kiro/specs/automation-engine-consolidation`) + its Phase-1 idempotency foundation shipped & tested; **G4** docs are reconciled (`new_mvp.md` is canonical, `blueprint/*` bannered) and **Storage external delivery was found already-built** (see G4 below — corrected). Remaining: G3 later phases (send-site dedup, engine retirement) + **G5 Voice** (planned).
+
 ---
 
 ## 1. Capability scorecard (verified in code)
@@ -47,10 +49,10 @@ Vision: client logs in with their email + a password they set on first access; o
 
 `flow/engine` + CRM `automation.service` + two DAG workflow services coexist (see `.MD/doc/erix_automation_flow_audit.md`). Works today, but doubles maintenance and risks the EventBus double-fire bug already flagged. **Do (before scaling):** converge on `flow/engine` as the one engine; make CRM rules a thin trigger layer. Plan already exists in `.MD/doc/erix_automation_unified_strategy.md`.
 
-### 🟡 G4 — ERIX-Storage external delivery is thin
+### 🟢 G4 — ERIX-Storage external delivery — CORRECTED: already built
 
-`StorageService` + R2 + public CDN URL exist (conversation media works). The "cloudinary-like API-key delivery for the client's own website + usage metering + image transforms" is not fully there.
-**Do:** per-tenant storage API key + signed delivery + usage metering. Lower priority than G1/G2.
+On verification the cloudinary-like external delivery is essentially present, not "thin": public CDN delivery via `R2_PUBLIC_URL`, Cloudflare `/cdn-cgi/image/` transforms (`image.utils.ts`), presigned upload/download URLs (`StorageService`), the `@ecodrix/erix-api` `storage` SDK resource, per-tenant API key (`x-api-key` / `validateClientKey`) for external SDK access, and `bandwidthTracking` metering. The `developer-storage-surface` spec (5/5 done) shipped the API-key + install-snippet + SDK-access developer surface.
+**Verdict:** no build needed. Optional future polish: signed time-boxed delivery tokens + a per-key usage dashboard. (Reclassified 🟡→🟢.)
 
 ### 🔵 G5 — Voice agent not started
 

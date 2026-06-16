@@ -1,3 +1,6 @@
+> ⚠️ **SUPERSEDED (v1).** Canonical pricing + revenue model is now `../new_mvp.md`
+> (₹2,499 floor, 8 streams). This v1 model (₹999 per-product tiers) is kept for history.
+
 # ECODrIx Platform — Business Model & Revenue Plan
 
 **Version:** 2.0 | **Date:** June 2026 | **Author:** Dhanesh Reddy M

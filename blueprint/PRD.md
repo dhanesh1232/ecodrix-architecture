@@ -1,3 +1,7 @@
+> ⚠️ **SUPERSEDED (v1).** The canonical product/pricing blueprint is now
+> `../new_mvp.md`. This doc is kept for history. See `../blueprint_audit.md` for
+> the conflicts and `../server_capability_audit.md` for the as-built reality.
+
 # ECODrIx Platform — Product Requirements Document
 
 **Version:** 2.0 | **Date:** June 2026 | **Author:** Dhanesh Reddy M

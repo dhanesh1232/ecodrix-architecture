@@ -1,3 +1,7 @@
+> ⚠️ **SUPERSEDED (v1).** Canonical blueprint is `../new_mvp.md`. Flows here are
+> UX intent; the as-built mechanics differ (Postgres CRM, HTTP/WS ErixStore,
+> multi-engine automation being consolidated). See `../server_capability_audit.md`.
+
 # ECODrIx Platform — App Flow Architecture
 
 **Version:** 2.0 | **Date:** June 2026

@@ -7,6 +7,13 @@
 **Entity:** ECODrIx Digital Studio · Tirupati, Andhra Pradesh, India  
 **GST:** 37GHCPM6574C1Z5 · **MSME:** UDYAM-AP-23-0027846
 
+> **📌 CANONICAL BLUEPRINT.** This is the single source of truth for product vision,
+> pricing, and revenue. The older per-product set under `blueprint/` (PRD/TRD/SCHEMA/
+> ROADMAP) is **superseded** — see `blueprint_audit.md` for the conflicts.
+> For the **as-built** technical reality (which differs from this doc on a few points —
+> CRM is Postgres-first via the ErixAdapter, ErixStore is an HTTP/WS service not a
+> 6399 TCP protocol, API is Express-primary), see `server_capability_audit.md`.
+
 ---
 
 > _"Competitors sell a wheel. ECODrIx sells the car."_

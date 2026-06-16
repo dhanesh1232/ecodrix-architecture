@@ -1,3 +1,9 @@
+> ⚠️ **SUPERSEDED (v1) — DO NOT TRUST TABLE NAMES.** This schema doc is the most
+> drifted: most table names here are wrong (e.g. `users`→`ecodrix_users`,
+> `laie_jobs`→`laie_lead_jobs`, `flow_definitions`→`flow_workflows`/`flow_definitions`),
+> and the CRM is **Postgres `erix_*` tables**, not the MongoDB collections shown.
+> Regenerate from `ECOD/server/src/shared/db/schema/**`. See `../server_capability_audit.md` §2.
+
 # ECODrIx Platform — Backend Schema Documentation
 
 **Version:** 2.0 | **Date:** June 2026

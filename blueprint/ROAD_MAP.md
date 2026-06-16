@@ -1,3 +1,6 @@
+> ⚠️ **SUPERSEDED (v1).** Canonical blueprint is `../new_mvp.md`. Repo layout here
+> (`apps/console`) doesn't match the real monorepo (`ECOD/{server,saas,admin,packages}`).
+
 # ECODrIx Platform — Implementation Roadmap
 
 **Version:** 2.0 | **Date:** June 2026 | **Builder:** Solo Founder (Dhanesh)

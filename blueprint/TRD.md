@@ -1,3 +1,9 @@
+> ⚠️ **SUPERSEDED (v1).** Canonical blueprint is now `../new_mvp.md`. The as-built
+> technical reality differs from this doc — CRM is **Postgres-first via the
+> ErixAdapter** (not Mongo-per-tenant), **ErixStore is an HTTP/WS service** (not a
+> 6399 `ERIX.*` TCP protocol), and the API is **Express-primary** (Hono only in the
+> api-gateway). See `../server_capability_audit.md` + `../blueprint_audit.md`.
+
 # ECODrIx Platform — Technical Requirements Document
 
 **Version:** 2.0 | **Date:** June 2026 | **Stack:** ECODrIx Native
