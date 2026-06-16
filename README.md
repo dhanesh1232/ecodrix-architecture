@@ -43,6 +43,14 @@ ECOD/
 ├── saas/                    Direct self-serve console (Next.js 15)
 ├── admin/                   Freelance / agency panel (Next.js)
 ├── server/                  API + workers (Express + Hono, TypeScript)
+│   └── src/
+│       ├── erix/            CRM product module (@erix/*)
+│       ├── laie/            Lead Intelligence product module (@laie/*)
+│       ├── flow/            Automation/Workflow product module (@flow/*)
+│       ├── infra/           Infrastructure services (@infra/*)
+│       ├── shared/          Cross-product shared layer (@shared/*)
+│       ├── platform/        Platform control-plane (@platform/*)
+│       └── routes/index.ts  Central route composition
 ├── erix-store/              In-memory engine (cache, queue, locks, pubsub)
 ├── packages/
 │   ├── erix-api/            TS SDK (@ecodrix/erix-api)
@@ -55,6 +63,7 @@ ECOD/
 
 ## What just shipped (May 30, 2026)
 
+- **Platform reorganization** — server restructured into product modules (`erix/`, `laie/`, `flow/`) with shared infra (`infra/connect`, `infra/storage`, `infra/store`), cross-product shared layer (`shared/`), and platform control-plane (`platform/`). Path aliases (`@erix/*`, `@laie/*`, `@flow/*`, `@infra/*`, `@shared/*`, `@platform/*`) enforce module boundaries. See `server/README.md` for full structure. Spec: `.kiro/specs/platform-reorganization/`.
 - **Unified pricing & entitlements** — 5 plans + 8 add-ons, atomic usage metering, subscription lifecycle worker. Spec: `saas/.kiro/specs/platform-pricing-entitlements/`.
 - **Visual workflow automation builder** — React Flow front-end plus a Postgres execution engine wired into EventBus. Spec: `saas/.kiro/specs/visual-automation-builder/`.
 - **Schema reorganisation** — `ecodrix_*` (platform), `erix_*` (CRM), `laie_*` (lead-gen) split into per-table modules under `server/src/shared/db/schema/`. Single `drizzle.config.ts` covers all three.
@@ -72,4 +81,4 @@ ECOD/
 - Every CRM query passes through the `ErixAdapter` (`server/src/lib/erix-adapter/`). Frontend never calls the DB or `fetch` directly — it goes through `@ecodrix/erix-api`.
 - The single tenant boundary is `req.org.id`, attached by `middleware/tenantResolver.ts` (rolling out as part of platform-completion).
 
-Last updated: 2026-05-30 · Cross-references: `saas/.kiro/specs/platform-pricing-entitlements/`, `saas/.kiro/specs/platform-completion-end-to-end/`.
+Last updated: 2026-06-14 · Cross-references: `saas/.kiro/specs/platform-pricing-entitlements/`, `saas/.kiro/specs/platform-completion-end-to-end/`, `.kiro/specs/platform-reorganization/`.

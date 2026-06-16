@@ -5,29 +5,29 @@ piece of the platform. Status legend: ✅ Built · 🟡 Partial · ⬜ Planned.
 
 ## Platform Foundation
 
-| Module                    | Status | Code                                                       | Active spec                              |
-| ------------------------- | :----: | ---------------------------------------------------------- | ---------------------------------------- |
-| Multi-tenant org model    |   ✅   | `server/src/shared/db/schema/platform/organizations.ts`    | `platform-completion-end-to-end/`        |
-| Plans + add-ons           |   ✅   | `server/src/shared/db/schema/platform/plans.ts`            | `platform-pricing-entitlements/`         |
-| Subscriptions + lifecycle |   ✅   | `server/src/services/platform/subscription.service.ts`     | `platform-pricing-entitlements/`         |
-| Atomic usage metering     |   ✅   | `server/src/services/platform/usage.service.ts`            | `platform-pricing-entitlements/`         |
-| Entitlement service       |   ✅   | `server/src/services/platform/entitlements.service.ts`     | `platform-pricing-entitlements/`         |
-| Cloud storage (R2 + CDN)  |   🟡   | `server/src/services/saas/media/`, `ecodrix_cloud_storage` | `platform-pricing-entitlements/` (Req 8) |
-| Audit logs                |   ✅   | `ecodrix_audit_logs`                                       | —                                        |
-| API tokens                |   ✅   | `ecodrix_api_tokens`                                       | `platform-completion-end-to-end/`        |
-| Waitlist                  |   ✅   | `server/src/services/waitlist/`, `ecodrix_waitlist`        | —                                        |
+| Module                    | Status | Code                                                         | Active spec                              |
+| ------------------------- | :----: | ------------------------------------------------------------ | ---------------------------------------- |
+| Multi-tenant org model    |   ✅   | `server/src/shared/db/schema/platform/organizations.ts`      | `platform-completion-end-to-end/`        |
+| Plans + add-ons           |   ✅   | `server/src/shared/db/schema/platform/plans.ts`              | `platform-pricing-entitlements/`         |
+| Subscriptions + lifecycle |   ✅   | `server/src/platform/services/subscription.service.ts`       | `platform-pricing-entitlements/`         |
+| Atomic usage metering     |   ✅   | `server/src/shared/services/global/usage.service.ts`         | `platform-pricing-entitlements/`         |
+| Entitlement service       |   ✅   | `server/src/platform/services/entitlements.service.ts`       | `platform-pricing-entitlements/`         |
+| Cloud storage (R2 + CDN)  |   🟡   | `server/src/infra/storage/`, `ecodrix_cloud_storage`         | `platform-pricing-entitlements/` (Req 8) |
+| Audit logs                |   ✅   | `ecodrix_audit_logs`                                         | —                                        |
+| API tokens                |   ✅   | `ecodrix_api_tokens`                                         | `platform-completion-end-to-end/`        |
+| Waitlist                  |   ✅   | `server/src/platform/services/waitlist/`, `ecodrix_waitlist` | —                                        |
 
 ## Multi-Source Data Layer
 
-| Module                            | Status | Code                                                          | Active spec                       |
-| --------------------------------- | :----: | ------------------------------------------------------------- | --------------------------------- |
-| `ErixAdapter` interface           |   🟡   | `server/src/lib/erix-adapter/types.ts` (in flight)            | `platform-completion-end-to-end/` |
-| `PostgresAdapter`                 |   🟡   | `server/src/lib/erix-adapter/postgres-adapter.ts` (in flight) | `platform-completion-end-to-end/` |
-| `MongoAdapter` (legacy bridge)    |   🟡   | wraps `getCrmModels(clientCode)`                              | `platform-completion-end-to-end/` |
-| `DualAdapter` + `erix-sync` queue |   ⬜   | planned                                                       | `platform-completion-end-to-end/` |
-| `tenantResolver` middleware       |   🟡   | `server/src/middleware/saasAuth.ts` (being rewritten)         | `platform-completion-end-to-end/` |
-| Mongo Atlas provisioner           |   ⬜   | `server/src/services/admin/mongo-provisioner.ts` (planned)    | `platform-completion-end-to-end/` |
-| External DB encryption            |   ✅   | `server/src/lib/crypto.ts` (AES-256-CBC)                      | —                                 |
+| Module                            | Status | Code                                                               | Active spec                       |
+| --------------------------------- | :----: | ------------------------------------------------------------------ | --------------------------------- |
+| `ErixAdapter` interface           |   🟡   | `server/src/erix/lib/erix-adapter/types.ts` (in flight)            | `platform-completion-end-to-end/` |
+| `PostgresAdapter`                 |   🟡   | `server/src/erix/lib/erix-adapter/postgres-adapter.ts` (in flight) | `platform-completion-end-to-end/` |
+| `MongoAdapter` (legacy bridge)    |   🟡   | wraps `getCrmModels(clientCode)`                                   | `platform-completion-end-to-end/` |
+| `DualAdapter` + `erix-sync` queue |   ⬜   | planned                                                            | `platform-completion-end-to-end/` |
+| `tenantResolver` middleware       |   🟡   | `server/src/shared/middleware/saasAuth.ts` (being rewritten)       | `platform-completion-end-to-end/` |
+| Mongo Atlas provisioner           |   ⬜   | `server/src/services/admin/mongo-provisioner.ts` (planned)         | `platform-completion-end-to-end/` |
+| External DB encryption            |   ✅   | `server/src/shared/utils/crypto.ts` (AES-256-CBC)                  | —                                 |
 
 ## Auth & Acquisition
 
@@ -90,10 +90,10 @@ piece of the platform. Status legend: ✅ Built · 🟡 Partial · ⬜ Planned.
 
 | Module                                     | Status | Code                                            | Active spec        |
 | ------------------------------------------ | :----: | ----------------------------------------------- | ------------------ |
-| Auto-respond (Gemini 2.0 Flash, Vertex AI) |   ✅   | `server/src/services/saas/ai/auto-responder.ts` | `ai-auto-respond/` |
+| Auto-respond (Gemini 2.0 Flash, Vertex AI) |   ✅   | `server/src/laie/services/ai/auto-responder.ts` | `ai-auto-respond/` |
 | Semantic cache integration                 |   ✅   | uses ErixStore `semantic` service               | `ai-auto-respond/` |
-| Confidence threshold + queue-for-review    |   ✅   | `services/saas/ai/confidence.ts`                | `ai-auto-respond/` |
-| Outreach kit generation (Claude on Vertex) |   ✅   | `lib/laie/claudeClient.ts`                      | —                  |
+| Confidence threshold + queue-for-review    |   ✅   | `server/src/laie/services/ai/confidence.ts`     | `ai-auto-respond/` |
+| Outreach kit generation (Claude on Vertex) |   ✅   | `server/src/laie/lib/laie/claudeClient.ts`      | —                  |
 | Smart reply suggestions                    |   ✅   | `@ecodrix/erix-react/ai/SmartReplySuggestions`  | —                  |
 | Lead score AI snapshot                     |   🟡   | `erix_leads.ai_summary`                         | —                  |
 | Predictive pipeline forecast               |   ⬜   | planned                                         | —                  |
@@ -120,16 +120,20 @@ piece of the platform. Status legend: ✅ Built · 🟡 Partial · ⬜ Planned.
 
 ## Cross-Cutting
 
-| Concern                           | Code                                                            |
-| --------------------------------- | --------------------------------------------------------------- |
-| Logging                           | `server/src/lib/logger.ts`                                      |
-| Encryption                        | `server/src/lib/crypto.ts`                                      |
-| ErixStore client                  | `server/src/lib/erixStore.ts`                                   |
-| Tenant connection manager (Mongo) | `server/src/lib/connectionManager.ts`                           |
-| Idempotency keys                  | `server/src/middleware/idempotency.ts`                          |
-| Rate limit middleware             | `server/src/middleware/rate-limit.ts`                           |
-| Quota middleware factory          | `server/src/middleware/quotaGuard.ts`                           |
-| Plan boolean gate                 | `server/src/middleware/planGuard.ts`                            |
-| Bandwidth + storage tracking      | `server/src/middleware/bandwidthTracking.ts`, `storageQuota.ts` |
+> **Note (post-reorganization):** The platform has been restructured into product modules.
+> Use path aliases (`@erix/*`, `@laie/*`, `@flow/*`, `@infra/*`, `@shared/*`, `@platform/*`) for imports.
+> See `ECOD/server/README.md` for the full directory structure and module boundary rules.
 
-Last updated: 2026-05-30 · Cross-references: `saas/.kiro/specs/`.
+| Concern                           | Code (new path)                                              |
+| --------------------------------- | ------------------------------------------------------------ |
+| Logging                           | `server/src/shared/utils/logger.ts` (`@shared/utils/logger`) |
+| Encryption                        | `server/src/shared/utils/crypto.ts` (`@shared/utils/crypto`) |
+| ErixStore client                  | `server/src/infra/store/client/` (`@infra/store`)            |
+| Tenant connection manager (Mongo) | `server/src/shared/utils/connectionManager.ts`               |
+| Idempotency keys                  | `server/src/shared/middleware/idempotency.ts`                |
+| Rate limit middleware             | `server/src/shared/middleware/rate-limit.ts`                 |
+| Quota middleware factory          | `server/src/shared/middleware/quotaGuard.ts`                 |
+| Plan boolean gate                 | `server/src/shared/middleware/planGuard.ts`                  |
+| Bandwidth + storage tracking      | `server/src/shared/middleware/bandwidthTracking.ts`          |
+
+Last updated: 2026-06-14 · Cross-references: `saas/.kiro/specs/`, `.kiro/specs/platform-reorganization/`.
