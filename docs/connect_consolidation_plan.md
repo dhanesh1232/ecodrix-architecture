@@ -117,3 +117,19 @@ This turns Connect into the TRUE channel abstraction: every outbound message
 (email/WA/IG/FB/Telegram/SMS) goes through `infra/connect/channels/*` or
 `infra/connect/providers/*`, and every inbound webhook arrives at
 `infra/connect/channels/*/routes/webhook.routes.ts`.
+
+---
+
+## 5. Verification result (June 2026)
+
+On tracing the actual imports:
+
+- `erix/services/mail/email.service.ts` → **already imports `@infra/connect/providers/email/mail.client`** (the Connect transport). It's a thin wrapper adding tracking injection + lead attribution. NOT a duplicate — a legitimate application layer.
+- `ActionExecutor.sendWhatsApp` → **already imports from `@infra/connect/channels/whatsapp/services/*`**. Template resolution + conversation management sit in automation; transport is Connect.
+- `erix/services/email/email.service.ts` → enable/toggle service, not a send path.
+
+**Conclusion:** The channel services are ALREADY consolidated for transport through Connect. The "scatter" in the audit is application-layer concerns (templates, tracking, conversations) that correctly live in CRM/automation while delegating transport to Connect. The architecture is sound.
+
+**What the new facades add:** Clean zero-config entry points for simple sends (flow actions, webhook handlers, notifications) that skip the application-layer complexity. They are ADDITIVE, not a replacement of the existing layered services.
+
+**Status: ✅ Connect consolidation is essentially complete.** No further moves needed — the existing separation of concerns (application logic in CRM/automation, transport in Connect) is correct architecture.
