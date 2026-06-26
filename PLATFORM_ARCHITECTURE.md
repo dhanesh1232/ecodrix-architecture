@@ -361,6 +361,139 @@ Always-on in-memory data engine running on the GCE VM:
 
 ---
 
+## Adaptive Onboarding + AI Persona Engine
+
+### Overview
+
+Config-driven, niche-aware onboarding system that bootstraps a **per-user AI persona**
+on first product activation. The persona shapes all AI-generated outputs across every
+ECODrIx product — outreach copy, follow-ups, pipeline suggestions, research summaries,
+and automation templates. It learns continuously from user behavior, forming a flywheel
+that deepens personalization over time.
+
+### Architecture Flow
+
+```
+User enables product
+  │
+  ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│  Onboarding Engine (config-driven, JsonLogic branching)              │
+│  • Loads versioned step config from ecodrix_onboarding_configs       │
+│  • Evaluates conditional branches per user answers                   │
+│  • Resolves niche pack → pre-fills industry context                  │
+└──────────────┬───────────────────────────────────────────────────────┘
+               │ answers
+               ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│  PersonaWriter                                                       │
+│  • Bootstraps AIPersona from session answers + niche pack defaults   │
+│  • Recomputes on edits (lock → txn → history → cache invalidate)     │
+│  • Applies reinforcement events (deal_won, outreach_edited, etc.)    │
+└──────────────┬───────────────────────────────────────────────────────┘
+               │ writes
+               ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│  ecodrix_ai_personas (Postgres)                                      │
+│  identity · behaviorRules · vocabulary · icp · learningMemory        │
+└──────────────┬───────────────────────────────────────────────────────┘
+               │ reads (cache-first)
+               ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│  PersonaContextBuilder                                               │
+│  • Token-budgeted prompt assembly (tiktoken counting)                │
+│  • Section prioritization + tail-first pruning                       │
+│  • Injects persona context into EVERY AI prompt across all products  │
+└──────────────┬───────────────────────────────────────────────────────┘
+               │
+               ▼
+        ┌──────────────┐
+        │  AI Outputs   │  Outreach · Follow-ups · Research · Automations
+        └──────────────┘
+               │ reinforcement events
+               ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│  Persona Self-Review (nightly cron)                                   │
+│  • Confidence-gap detection → follow-up questions                    │
+│  • Contradiction pruning → removes conflicting rules                 │
+│  • Pattern generalisation → promotes recurring patterns              │
+│  • Style drift recalibration → realigns voice consistency            │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Components
+
+| Component                  | Path                                                     | Responsibility                                                                                                         |
+| -------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `configEngine`             | `server/src/erix/services/onboarding/configEngine`       | Loads versioned onboarding configs, evaluates JsonLogic branches, resolves next step                                   |
+| `sessionStore`             | `server/src/erix/services/onboarding/sessionStore`       | Postgres CRUD for onboarding sessions (create, append answer, mark complete/abandoned)                                 |
+| `workspaceShaper`          | `server/src/erix/services/onboarding/workspaceShaper`    | Produces workspace profiles from persona + niche pack; materializes pipelines, fields, automations                     |
+| `personaWriter`            | `server/src/erix/services/persona/personaWriter`         | Bootstrap from session, recompute on edits, apply reinforcement events (lock → txn → history → cache invalidate)       |
+| `personaReader`            | `server/src/erix/services/persona/personaReader`         | Cache-first reads (erix-store 5-min TTL → Postgres on miss)                                                            |
+| `PersonaContextBuilder`    | `server/src/erix/services/persona/PersonaContextBuilder` | Token-budgeted prompt assembly with tiktoken counting, section prioritization, tail-first pruning                      |
+| `personaSelfReview.worker` | `server/src/erix/jobs/saas/personaSelfReview.worker`     | 4 autonomous loops: confidence-gap detection, contradiction pruning, pattern generalisation, style drift recalibration |
+
+### Data Model
+
+```
+┌────────────────────────────────────────┬──────────────────────────────────────────────────────────────────┐
+│ Table                                  │ Purpose                                                          │
+├────────────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+│ ecodrix_ai_personas                    │ The persona row — identity, behaviorRules, vocabulary, icp,      │
+│                                        │ learningMemory, confidenceScore                                  │
+├────────────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+│ ecodrix_onboarding_sessions            │ Active/completed sessions with answers + draft persona snapshot  │
+├────────────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+│ ecodrix_niche_packs                    │ Industry/niche templates (onboarding config + research config +  │
+│                                        │ workspace profile)                                               │
+├────────────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+│ ecodrix_onboarding_configs             │ Versioned step definitions with JsonLogic branching rules        │
+├────────────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+│ ecodrix_persona_memory_history         │ RFC 6902 JSON Patch diffs, capped at 50 versions per persona     │
+├────────────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+│ ecodrix_onboarding_events              │ Analytics event log (step_viewed, answer_submitted, etc.)        │
+├────────────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+│ ecodrix_persona_followup_questions     │ Confidence-gap loop — AI-generated follow-up questions           │
+├────────────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+│ ecodrix_onboarding_experiments         │ A/B test definitions for onboarding flow variants                │
+└────────────────────────────────────────┴──────────────────────────────────────────────────────────────────┘
+```
+
+All tables are scoped by `org_id` and live in `server/src/shared/db/schema/platform/`.
+
+### Workers
+
+Registered via `registerSaasWorkers()` in the worker bootstrap chain:
+
+| Worker                  | Trigger                                               | Responsibility                                                          |
+| ----------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------- |
+| `persona-reinforcement` | `lead_approved`, `deal_won`, `outreach_edited` events | Updates persona learningMemory from real-world outcomes                 |
+| `persona-recompute`     | Niche pack change                                     | Re-derives persona when underlying niche pack is modified               |
+| `persona-confidence`    | Debounced (1 min after last event)                    | Recalculates persona confidenceScore                                    |
+| `onboarding-events`     | Any onboarding interaction                            | Inserts into the events analytics table                                 |
+| `persona-self-review`   | Nightly cron + on-demand                              | Runs the 4 autonomous loops (gap, contradiction, generalisation, drift) |
+
+### Multi-Tenant Isolation
+
+- **org_id scoping** on every table — enforced at Drizzle schema level
+- **Runtime assertion guards** — all service methods assert `org_id` matches before mutation
+- **Property-based fuzz tests** — verify no cross-tenant data leak under random input
+- **Cache key prefixing** — `{orgId}:persona:{personaId}` enables safe prefix invalidation per tenant
+
+### Performance
+
+| Operation                       | Target             | Measurement                   |
+| ------------------------------- | ------------------ | ----------------------------- |
+| `PersonaContextBuilder.build()` | ≤50ms p99 (cached) | prom-client histogram         |
+| `PersonaContextBuilder.build()` | ≤250ms (cold)      | prom-client histogram         |
+| Onboarding state load           | ≤200ms TTFB        | prom-client histogram         |
+| Cache hit ratio                 | ≥95% steady-state  | Rolling gauge via prom-client |
+
+Metrics are exported via prom-client histograms and a rolling cache hit ratio gauge,
+scraped by the platform monitoring stack.
+
+---
+
 ## What Makes This Investor-Ready
 
 1. **Multi-tenant from day 1** — not bolted on. Every query is org-scoped.
