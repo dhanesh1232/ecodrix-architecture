@@ -1,0 +1,449 @@
+/\*\*
+
+- ECODrIx Design Tokens — CSS Custom Properties
+- Generated from: ecodrix-tokens.json v1.0.0
+- ECODrIx Digital Studio · Tirupati, AP · MSME: UDYAM-AP-23-0027846
+-
+- Usage:
+- import './ecodrix-tokens.css';
+- background: var(--color-primary-500);
+-
+- Theme toggle:
+- <html data-theme="light">  or  <html data-theme="dark">
+- document.documentElement.setAttribute('data-theme', 'dark');
+  \*/
+
+/_ ═══════════════════════════════════════════════════════════
+BRAND COLORS — Logo-extracted. Never change these hexes.
+═══════════════════════════════════════════════════════════ _/
+
+:root {
+/_ ── Primary Blue (E/X letters) ─────────────────────── _/
+--color-primary-50: #EFF6FF;
+--color-primary-100: #DBEAFE;
+--color-primary-200: #BFDBFE;
+--color-primary-300: #93C5FD;
+--color-primary-400: #60A5FA;
+--color-primary-500: #2563EB; /_ LOGO BASE — CTA, links, focus rings _/
+--color-primary-600: #1D4ED8; /_ hover state _/
+--color-primary-700: #1E40AF;
+--color-primary-800: #1E3A8A; /_ dark surface tint _/
+--color-primary-900: #172554;
+
+/_ ── Accent Purple (arc/swish) ──────────────────────── _/
+--color-accent-50: #F5F3FF;
+--color-accent-100: #EDE9FE;
+--color-accent-200: #DDD6FE;
+--color-accent-300: #C4B5FD;
+--color-accent-400: #A78BFA;
+--color-accent-500: #7C3AED; /_ LOGO BASE — early access, premium _/
+--color-accent-600: #6D28D9; /_ hover state _/
+--color-accent-700: #5B21B6;
+--color-accent-800: #4C1D95;
+--color-accent-900: #3B0764;
+
+/_ ── Fire Red (i dot) ───────────────────────────────── _/
+--color-fire-50: #FEF2F2;
+--color-fire-100: #FEE2E2;
+--color-fire-200: #FECACA;
+--color-fire-300: #FCA5A5;
+--color-fire-400: #F87171;
+--color-fire-500: #DC2626; /_ LOGO BASE — urgency, gradient end _/
+--color-fire-600: #B91C1C; /_ hover state _/
+--color-fire-700: #991B1B;
+--color-fire-800: #7F1D1D;
+--color-fire-900: #450A0A;
+
+/_ ── Named Gradients ────────────────────────────────── _/
+--gradient-cosmic: linear-gradient(135deg, #2563EB, #7C3AED);
+--gradient-phoenix: linear-gradient(135deg, #7C3AED, #DC2626);
+--gradient-brand: linear-gradient(135deg, #2563EB 0%, #7C3AED 50%, #DC2626 100%);
+--gradient-brand-dark: linear-gradient(135deg, #1D4ED8 0%, #6D28D9 50%, #B91C1C 100%);
+
+/_ ── Semantic (system feedback — NOT brand) ─────────── _/
+--color-success: #16A34A;
+--color-warning: #D97706;
+--color-error: #EF4444; /_ DISTINCT from --color-fire-500 _/
+--color-info: #0EA5E9; /_ DISTINCT from --color-primary-500 _/
+
+/_ ── Product Color Assignments ──────────────────────── _/
+--product-crm: var(--color-primary-500); /_ erix-crm _/
+--product-laie: var(--color-accent-500); /_ erix-laie _/
+--product-flow: var(--gradient-cosmic); /_ erix-flow _/
+--product-connect: var(--color-fire-500); /_ erix-connect _/
+--product-store: #475569; /_ erix-store — slate neutral _/
+--product-storage: var(--color-primary-500); /_ erix-storage _/
+
+/_ ── Typography ─────────────────────────────────────── _/
+--font-display: 'Syne', system-ui, -apple-system, sans-serif;
+--font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+--font-code: 'JetBrains Mono', 'Fira Code', monospace;
+
+/_ ── Type Scale ──────────────────────────────────────── _/
+--text-display-xl: 72px;
+--text-display-lg: 52px;
+--text-display-md: 40px;
+--text-display-sm: 32px;
+--text-title-lg: 24px;
+--text-title-md: 20px;
+--text-title-sm: 18px;
+--text-label: 13px;
+--text-body-lg: 18px;
+--text-body-md: 16px;
+--text-body-sm: 14px;
+--text-caption: 12px;
+--text-button: 14px;
+--text-nav: 14px;
+--text-code: 13px;
+
+/_ ── Font Weights ────────────────────────────────────── _/
+--weight-display: 800; /_ Syne — hero h1, section leads _/
+--weight-heading: 700; /_ Syne — card titles, stat values _/
+--weight-semibold:600; /_ Inter — button labels, form labels, title-md _/
+--weight-medium: 500; /_ Inter — captions, nav links _/
+--weight-regular: 400; /_ Inter — body paragraphs _/
+
+/_ ── Line Heights ────────────────────────────────────── _/
+--leading-display: 1.0;
+--leading-tight: 1.1;
+--leading-snug: 1.3;
+--leading-normal: 1.4;
+--leading-relaxed: 1.65;
+--leading-loose: 1.75;
+
+/_ ── Letter Spacing ──────────────────────────────────── _/
+--tracking-display: -0.025em;
+--tracking-heading: -0.02em;
+--tracking-label: 0.08em;
+--tracking-button: 0.02em;
+--tracking-caption: 0.02em;
+--tracking-body: 0;
+
+/_ ── Spacing (4px base) ──────────────────────────────── _/
+--space-xxs: 4px;
+--space-xs: 8px;
+--space-sm: 12px;
+--space-md: 16px;
+--space-lg: 24px; /_ card padding, grid gutters _/
+--space-xl: 40px; /_ modal padding, btn-xl padding-y _/
+--space-xxl: 64px; /_ hero band internal padding _/
+--space-section: 96px; /_ between every major page band _/
+
+/_ ── Border Radius ───────────────────────────────────── _/
+--radius-none: 0px;
+--radius-xs: 4px;
+--radius-sm: 6px;
+--radius-md: 10px; /_ DEFAULT INTERACTIVE — buttons, inputs _/
+--radius-lg: 12px; /_ DEFAULT CARD — product, pricing, feature cards _/
+--radius-xl: 16px; /_ mockup frame, hero card, modals _/
+--radius-2xl: 24px; /_ large feature panels _/
+--radius-full: 9999px; /_ badges, pills, icon buttons _/
+
+/_ ── Shadows ─────────────────────────────────────────── _/
+--shadow-none: none;
+--shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+--shadow-btn-blue: 0 6px 20px rgba(37,99,235,0.35);
+--shadow-btn-purple: 0 6px 20px rgba(124,58,237,0.35);
+--shadow-btn-fire: 0 8px 28px rgba(124,58,237,0.4);
+--shadow-featured: 0 0 0 4px rgba(37,99,235,0.08), 0 20px 40px rgba(37,99,235,0.1);
+
+/_ ── Motion ──────────────────────────────────────────── _/
+--duration-instant: 80ms;
+--duration-fast: 150ms;
+--duration-base: 200ms; /_ DEFAULT _/
+--duration-moderate: 300ms;
+--duration-slow: 500ms;
+--duration-float: 6000ms;
+
+--ease-standard: cubic-bezier(0.4, 0, 0.2, 1); /_ DEFAULT _/
+--ease-decelerate: cubic-bezier(0, 0, 0.2, 1); /_ elements entering _/
+--ease-accelerate: cubic-bezier(0.4, 0, 1, 1); /_ elements leaving _/
+--ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /_ tactile micro-bounce _/
+
+/_ ── Layout ──────────────────────────────────────────── _/
+--container-max: 1100px;
+--nav-height: 68px;
+--grid-cols: 12;
+--grid-gutter: var(--space-lg);
+}
+
+/_ ═══════════════════════════════════════════════════════════
+LIGHT THEME [data-theme="light"]
+═══════════════════════════════════════════════════════════ _/
+[data-theme="light"] {
+
+/_ Surfaces _/
+--bg: #FFFFFF;
+--bg-subtle: #F8FAFF;
+--bg-card: #FFFFFF;
+--bg-elevated: #F1F5FF;
+--bg-overlay: rgba(255,255,255,0.9);
+
+/_ Borders _/
+--border: #E2E8F0;
+--border-brand: rgba(37,99,235,0.2);
+--border-brand-strong: rgba(37,99,235,0.4);
+
+/_ Text _/
+--text-ink: #0F172A;
+--text-body: #334155;
+--text-muted: #64748B;
+--text-subtle: #94A3B8;
+
+/_ Nav _/
+--nav-bg: rgba(255,255,255,0.9);
+--nav-border: rgba(37,99,235,0.12);
+
+/_ Shadows (mode-aware) _/
+--shadow-hover: 0 20px 40px rgba(37,99,235,0.12);
+--shadow-mockup: 0 24px 60px rgba(37,99,235,0.1), 0 4px 12px rgba(0,0,0,0.05);
+
+/_ Badge tints _/
+--badge-blue-bg: var(--color-primary-100);
+--badge-blue-text: var(--color-primary-700);
+--badge-purple-bg: var(--color-accent-100);
+--badge-purple-text:var(--color-accent-700);
+--badge-fire-bg: var(--color-fire-100);
+--badge-fire-text: var(--color-fire-600);
+
+/_ Check icons in pricing _/
+--check-blue-bg: var(--color-primary-100);
+--check-blue-icon: var(--color-primary-700);
+--check-purple-bg: var(--color-accent-100);
+--check-purple-icon:var(--color-accent-600);
+
+/_ Product icon backgrounds _/
+--icon-blue-bg: rgba(37, 99, 235, 0.1);
+--icon-purple-bg: rgba(124, 58, 237, 0.1);
+--icon-fire-bg: rgba(220, 38, 38, 0.1);
+--icon-slate-bg: rgba(71, 85, 105, 0.1);
+
+/_ Hero atmospheric _/
+--hero-glow: radial-gradient(ellipse 60% 50% at 80% 40%, rgba(37,99,235,0.07) 0%, transparent 70%);
+--line-opacity: 0.1;
+
+/_ Card hover _/
+--card-hover-border: rgba(37,99,235,0.3);
+--card-hover-shadow: 0 20px 40px rgba(37,99,235,0.12);
+}
+
+/_ ═══════════════════════════════════════════════════════════
+DARK THEME [data-theme="dark"]
+DELTA TABLE — only tokens that change from light to dark
+═══════════════════════════════════════════════════════════ _/
+[data-theme="dark"] {
+
+/_ Surfaces _/
+--bg: #0B1120;
+--bg-subtle: #111827;
+--bg-card: #111E33;
+--bg-elevated: #162040;
+--bg-overlay: rgba(11,17,32,0.9);
+
+/_ Borders — identical tokens, different values _/
+--border: #1E2D4A;
+--border-brand: rgba(37,99,235,0.25);
+--border-brand-strong: rgba(37,99,235,0.45);
+
+/_ Text _/
+--text-ink: #F1F5F9;
+--text-body: #CBD5E1;
+--text-muted: #64748B; /_ same — mid-gray works both surfaces _/
+--text-subtle: #334155;
+
+/_ Nav _/
+--nav-bg: rgba(11,17,32,0.9);
+--nav-border: rgba(37,99,235,0.15);
+
+/_ Shadows _/
+--shadow-hover: 0 20px 40px rgba(0,0,0,0.4);
+--shadow-mockup: 0 24px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(37,99,235,0.15);
+
+/_ Badge tints — lower opacity on dark _/
+--badge-blue-bg: rgba(37, 99, 235, 0.12);
+--badge-blue-text: var(--color-primary-400);
+--badge-purple-bg: rgba(124, 58, 237, 0.12);
+--badge-purple-text:var(--color-accent-400);
+--badge-fire-bg: rgba(220, 38, 38, 0.12);
+--badge-fire-text: var(--color-fire-400);
+
+/_ Check icons _/
+--check-blue-bg: rgba(37, 99, 235, 0.15);
+--check-blue-icon: var(--color-primary-400);
+--check-purple-bg: rgba(124, 58, 237, 0.15);
+--check-purple-icon:var(--color-accent-400);
+
+/_ Product icon backgrounds _/
+--icon-blue-bg: rgba(37, 99, 235, 0.15);
+--icon-purple-bg: rgba(124, 58, 237, 0.15);
+--icon-fire-bg: rgba(220, 38, 38, 0.15);
+--icon-slate-bg: rgba(71, 85, 105, 0.15);
+
+/_ Hero atmospheric _/
+--hero-glow: radial-gradient(ellipse 60% 50% at 80% 40%, rgba(37,99,235,0.1) 0%, transparent 70%);
+--line-opacity: 0.15;
+
+/_ Card hover _/
+--card-hover-border: rgba(37,99,235,0.35);
+--card-hover-shadow: 0 20px 40px rgba(0,0,0,0.4);
+}
+
+/_ ═══════════════════════════════════════════════════════════
+REDUCED MOTION
+═══════════════════════════════════════════════════════════ _/
+@media (prefers-reduced-motion: reduce) {
+
+- {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  }
+
+/_ Specific overrides _/
+.hero-mockup { animation: none !important; }
+.live-dot { animation: none !important; opacity: 1; }
+}
+
+/_ ═══════════════════════════════════════════════════════════
+KEYFRAMES
+═══════════════════════════════════════════════════════════ _/
+@keyframes float {
+0%, 100% { transform: translateY(0); }
+50% { transform: translateY(-8px); }
+}
+
+@keyframes pulse-dot {
+0%, 100% { opacity: 1; transform: scale(1); }
+50% { opacity: 0.3; transform: scale(0.6); }
+}
+
+@keyframes gradient-in {
+from { opacity: 0; }
+to { opacity: 1; }
+}
+
+@keyframes fade-up {
+from { opacity: 0; transform: translateY(16px); }
+to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scale-in {
+from { opacity: 0; transform: scale(0.95); }
+to { opacity: 1; transform: scale(1); }
+}
+
+/_ ═══════════════════════════════════════════════════════════
+COMPONENT STATE MATRIX — Utility classes per state
+═══════════════════════════════════════════════════════════ _/
+
+/_ Button states _/
+.btn:disabled,
+.btn[aria-disabled="true"] {
+opacity: 0.45;
+cursor: not-allowed;
+pointer-events: none;
+transform: none !important;
+box-shadow: none !important;
+}
+
+.btn-loading {
+cursor: wait;
+position: relative;
+color: transparent !important;
+}
+
+.btn-loading::after {
+content: '';
+position: absolute;
+width: 16px; height: 16px;
+border: 2px solid rgba(255,255,255,0.3);
+border-top-color: #fff;
+border-radius: 50%;
+animation: spin 0.7s linear infinite;
+top: 50%; left: 50%;
+margin: -8px 0 0 -8px;
+}
+
+@keyframes spin {
+to { transform: rotate(360deg); }
+}
+
+/_ Input states _/
+.input-error {
+border-color: var(--color-error) !important;
+box-shadow: 0 0 0 3px rgba(239,68,68,0.1) !important;
+}
+
+.input-success {
+border-color: var(--color-success) !important;
+box-shadow: 0 0 0 3px rgba(22,163,74,0.1) !important;
+}
+
+.input-disabled {
+opacity: 0.5;
+cursor: not-allowed;
+background: var(--bg-subtle) !important;
+}
+
+.error-message {
+font-size: var(--text-caption);
+font-family: var(--font-body);
+font-weight: var(--weight-medium);
+color: var(--color-error);
+margin-top: var(--space-xs);
+display: flex;
+align-items: center;
+gap: var(--space-xs);
+}
+
+/_ Card states _/
+.card-skeleton {
+background: linear-gradient(
+90deg,
+var(--bg-elevated) 25%,
+var(--bg-subtle) 50%,
+var(--bg-elevated) 75%
+);
+background-size: 200% 100%;
+animation: skeleton-shimmer 1.5s ease-in-out infinite;
+border-radius: var(--radius-lg);
+}
+
+@keyframes skeleton-shimmer {
+0% { background-position: 200% 0; }
+100% { background-position: -200% 0; }
+}
+
+/_ Scrollbar _/
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-full); }
+::-webkit-scrollbar-thumb:hover { background: var(--color-primary-500); }
+
+/_ ═══════════════════════════════════════════════════════════
+ACCESSIBILITY
+═══════════════════════════════════════════════════════════ _/
+:focus-visible {
+outline: 2px solid var(--color-primary-500);
+outline-offset: 2px;
+border-radius: var(--radius-sm);
+}
+
+/_ Skip link _/
+.skip-to-content {
+position: absolute;
+top: -40px;
+left: 16px;
+background: var(--color-primary-500);
+color: #fff;
+padding: 8px 16px;
+border-radius: var(--radius-md);
+font-size: var(--text-body-sm);
+font-weight: var(--weight-semibold);
+z-index: 9999;
+transition: top var(--duration-fast) var(--ease-decelerate);
+}
+
+.skip-to-content:focus {
+top: 8px;
+}

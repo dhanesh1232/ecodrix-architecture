@@ -5,17 +5,20 @@ piece of the platform. Status legend: ✅ Built · 🟡 Partial · ⬜ Planned.
 
 ## Platform Foundation
 
-| Module                    | Status | Code                                                         | Active spec                              |
-| ------------------------- | :----: | ------------------------------------------------------------ | ---------------------------------------- |
-| Multi-tenant org model    |   ✅   | `server/src/shared/db/schema/platform/organizations.ts`      | `platform-completion-end-to-end/`        |
-| Plans + add-ons           |   ✅   | `server/src/shared/db/schema/platform/plans.ts`              | `platform-pricing-entitlements/`         |
-| Subscriptions + lifecycle |   ✅   | `server/src/platform/services/subscription.service.ts`       | `platform-pricing-entitlements/`         |
-| Atomic usage metering     |   ✅   | `server/src/shared/services/global/usage.service.ts`         | `platform-pricing-entitlements/`         |
-| Entitlement service       |   ✅   | `server/src/platform/services/entitlements.service.ts`       | `platform-pricing-entitlements/`         |
-| Cloud storage (R2 + CDN)  |   🟡   | `server/src/infra/storage/`, `ecodrix_cloud_storage`         | `platform-pricing-entitlements/` (Req 8) |
-| Audit logs                |   ✅   | `ecodrix_audit_logs`                                         | —                                        |
-| API tokens                |   ✅   | `ecodrix_api_tokens`                                         | `platform-completion-end-to-end/`        |
-| Waitlist                  |   ✅   | `server/src/platform/services/waitlist/`, `ecodrix_waitlist` | —                                        |
+| Module                          | Status | Code                                                                                                                                                                                                              | Active spec                              |
+| ------------------------------- | :----: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| Multi-tenant org model          |   ✅   | `server/src/shared/db/schema/platform/organizations.ts`                                                                                                                                                           | `platform-completion-end-to-end/`        |
+| Plans + add-ons                 |   ✅   | `server/src/shared/db/schema/platform/plans.ts`                                                                                                                                                                   | `platform-pricing-entitlements/`         |
+| Subscriptions + lifecycle       |   ✅   | `server/src/platform/services/subscription.service.ts`                                                                                                                                                            | `platform-pricing-entitlements/`         |
+| Atomic usage metering           |   ✅   | `server/src/shared/services/global/usage.service.ts`                                                                                                                                                              | `platform-pricing-entitlements/`         |
+| Credit wallet + cost controls   |   ✅   | `server/src/platform/services/creditWallet.service.ts` — prepaid ledger + **daily spend cap** (hard stop in `consume`) + approaching-cap alert                                                                    | —                                        |
+| Activation funnel (first-touch) |   ✅   | `ecodrix_activation_events` + `platform/services/activation.service.ts` — emits signup→channel_connected→automation_created→automation_fired→paid; `GET /admin/analytics/activation`; admin Analytics funnel view | —                                        |
+| Entitlement service             |   ✅   | `server/src/platform/services/entitlements.service.ts`                                                                                                                                                            | `platform-pricing-entitlements/`         |
+| Cloud storage (R2 + CDN)        |   🟡   | `server/src/infra/storage/`, `ecodrix_cloud_storage`                                                                                                                                                              | `platform-pricing-entitlements/` (Req 8) |
+| Audit logs                      |   ✅   | `ecodrix_audit_logs`                                                                                                                                                                                              | —                                        |
+| API tokens (legacy)             |   🟡   | `ecodrix_api_tokens` — **deprecated**, superseded by Connect keys                                                                                                                                                 | `platform-completion-end-to-end/`        |
+| Connect scoped API keys         |   ✅   | `connect_api_keys`, `server/src/infra/connect/apikeys/` — scoped (`events:emit`, `email:send`, …), revocable, rate-limited                                                                                        | —                                        |
+| Waitlist                        |   ✅   | `server/src/platform/services/waitlist/`, `ecodrix_waitlist`                                                                                                                                                      | —                                        |
 
 ## Multi-Source Data Layer
 
@@ -41,35 +44,40 @@ piece of the platform. Status legend: ✅ Built · 🟡 Partial · ⬜ Planned.
 
 ## ERIX CRM
 
-| Module                              | Status | Code                                                    | Active spec                       |
-| ----------------------------------- | :----: | ------------------------------------------------------- | --------------------------------- |
-| Leads + activities + notes          |   ✅   | `erix_leads`, `erix_lead_activities`, `erix_lead_notes` | `erix-crm-module/`                |
-| Pipelines + stages                  |   ✅   | `erix_pipelines`, `erix_pipeline_stages`                | `erix-crm-module/`                |
-| Conversations + messages (WhatsApp) |   ✅   | `erix_conversations`, `erix_messages`                   | —                                 |
-| WhatsApp templates + broadcasts     |   ✅   | `erix_whatsapp_templates`, `erix_broadcasts`            | —                                 |
-| Email templates                     |   ✅   | `erix_email_templates`                                  | —                                 |
-| Meetings (Google Meet)              |   ✅   | `erix_meetings`                                         | —                                 |
-| Segments + scoring                  |   ✅   | `erix_segments`, `erix_scoring_configs`                 | —                                 |
-| Automation rules + sequences        |   ✅   | `erix_automation_rules`, `erix_sequence_enrollments`    | —                                 |
-| Visual workflows                    |   ✅   | `erix_workflows`, `erix_workflow_runs`                  | `visual-automation-builder/`      |
-| Notifications                       |   ✅   | `erix_notifications`                                    | —                                 |
-| Invoices + settings                 |   ✅   | `erix_invoices`, `erix_invoice_settings`                | `invoice-module/`                 |
-| Dynamic field builder               |   ⬜   | `erix_field_configs` planned                            | `platform-completion-end-to-end/` |
+| Module                             | Status | Code                                                                                                                                                                                                          | Active spec                       |
+| ---------------------------------- | :----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| Leads + activities + notes         |   ✅   | `erix_leads`, `erix_lead_activities`, `erix_lead_notes`                                                                                                                                                       | `erix-crm-module/`                |
+| Pipelines + stages                 |   ✅   | `erix_pipelines`, `erix_pipeline_stages`                                                                                                                                                                      | `erix-crm-module/`                |
+| Unified inbox (all channels)       |   ✅   | `erix_conversations`, `erix_messages` via `ConversationSDK` — WhatsApp/IG/FB/Telegram/email all land in ONE store (`conversation.sdk.ts`); inbound social routed through it regardless of lead-capture policy | —                                 |
+| WhatsApp templates + broadcasts    |   ✅   | `erix_whatsapp_templates`, `erix_broadcasts`                                                                                                                                                                  | —                                 |
+| Email templates                    |   ✅   | `erix_email_templates`                                                                                                                                                                                        | —                                 |
+| Meetings (Google Meet)             |   ✅   | `erix_meetings`                                                                                                                                                                                               | —                                 |
+| Segments + scoring                 |   ✅   | `erix_segments`, `erix_scoring_configs`                                                                                                                                                                       | —                                 |
+| Automation rules + sequences       |   ✅   | `erix_automation_rules` (multi-node `canvas`, `execution_count`, `last_executed_at`), `erix_sequence_enrollments`                                                                                             | —                                 |
+| Visual automation builder          |   ✅   | `saas/.../automation/builder/` — multi-node trigger→condition→action canvas + templates gallery                                                                                                               | `visual-automation-builder/`      |
+| Custom event defs                  |   ✅   | `erix_custom_event_defs` (`icon`/`color`) — tenant-defined website triggers (`crm/custom-events`)                                                                                                             | —                                 |
+| Event trigger API (external)       |   ✅   | `POST /v1/api/product/erix/events/trigger` — fire from a website/webhook; auth Connect key `events:emit`                                                                                                      | —                                 |
+| Direct channel send (external)     |   ✅   | `POST /v1/api/infra/connect/send/{channel}` — instant send, bypasses automations; email also `/v1/api/email/send`                                                                                             | —                                 |
+| Lead-capture policy                |   ✅   | `service_config.autoCreateLeads` (`crm/leadPolicy.ts`) — platform toggle; off = conversation-only                                                                                                             | —                                 |
+| ~~Visual workflows (flow engine)~~ |   ⬜   | `erix_workflows`, `erix_workflow_runs` — **RETIRED**, superseded by automation rules + builder                                                                                                                | —                                 |
+| Notifications                      |   ✅   | `erix_notifications`                                                                                                                                                                                          | —                                 |
+| Invoices + settings                |   ✅   | `erix_invoices`, `erix_invoice_settings`                                                                                                                                                                      | `invoice-module/`                 |
+| Dynamic field builder              |   ⬜   | `erix_field_configs` planned                                                                                                                                                                                  | `platform-completion-end-to-end/` |
 
 ## LAIE Lead Engine
 
-| Module                                       | Status | Code                                                                | Active spec      |
-| -------------------------------------------- | :----: | ------------------------------------------------------------------- | ---------------- |
-| Tenant + user + API key                      |   ✅   | `laie_tenants`, `laie_users`, `laie_api_keys`                       | —                |
-| Actor runtime                                |   ✅   | `server/src/services/actor-runtime/`                                | —                |
-| Actors (Google Maps, web research, LinkedIn) |   ✅   | `server/src/lib/laie/actors/`, `laie_actors`                        | —                |
-| Datasets + dataset items                     |   ✅   | `laie_datasets`, `laie_dataset_items`                               | —                |
-| Audits (GBP, accessibility, SEO)             |   🟡   | `laie_health_score_checks` and friends                              | `laie-audit-ui/` |
-| Lead intelligence (M01–M12)                  |   🟡   | `laie_review_intelligence`, `laie_competitor`, `laie_cluster`, etc. | —                |
-| Outreach kits (Claude on Vertex)             |   ✅   | `laie_outreach_kits`, `lib/laie/claudeClient.ts`                    | —                |
-| Audit UI (search → progress → result)        |   🟡   | `saas/src/app/(laie)/laie/audit/`                                   | `laie-audit-ui/` |
-| Leads + push to ERIX                         |   🟡   | `laie_leads`, `laie_lead_jobs`                                      | —                |
-| Workflows + schedules + webhooks             |   ✅   | `laie_workflows`, `laie_schedules`, `laie_webhooks`                 | —                |
+| Module                                       | Status | Code                                                                                                                                              | Active spec      |
+| -------------------------------------------- | :----: | ------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| Tenant + user + API key                      |   ✅   | `laie_tenants`, `laie_users`, `laie_api_keys`                                                                                                     | —                |
+| Actor runtime                                |   ✅   | `server/src/services/actor-runtime/`                                                                                                              | —                |
+| Actors (Google Maps, web research, LinkedIn) |   ✅   | `server/src/lib/laie/actors/`, `laie_actors`                                                                                                      | —                |
+| Datasets + dataset items                     |   ✅   | `laie_datasets`, `laie_dataset_items`                                                                                                             | —                |
+| Audits (GBP, accessibility, SEO)             |   🟡   | `laie_health_score_checks` and friends                                                                                                            | `laie-audit-ui/` |
+| Lead intelligence (M01–M12)                  |   🟡   | `laie_review_intelligence`, `laie_competitor`, `laie_cluster`, etc.                                                                               | —                |
+| Outreach kits (Claude on Vertex)             |   ✅   | `laie_outreach_kits`, `lib/laie/claudeClient.ts`                                                                                                  | —                |
+| Audit UI (search → progress → result)        |   🟡   | `saas/src/app/(laie)/laie/audit/`                                                                                                                 | `laie-audit-ui/` |
+| Leads + push to ERIX                         |   ✅   | `laie_leads`, `laie_lead_jobs`; import bridge `laie/routes/import.routes.ts` → `/v1/api/product/erix/crm/leads/import` (source + kit, idempotent) | —                |
+| Workflows + schedules + webhooks             |   ✅   | `laie_workflows`, `laie_schedules`, `laie_webhooks`                                                                                               | —                |
 
 ## ErixStore (Infrastructure)
 
@@ -136,4 +144,4 @@ piece of the platform. Status legend: ✅ Built · 🟡 Partial · ⬜ Planned.
 | Plan boolean gate                 | `server/src/shared/middleware/planGuard.ts`                  |
 | Bandwidth + storage tracking      | `server/src/shared/middleware/bandwidthTracking.ts`          |
 
-Last updated: 2026-06-14 · Cross-references: `saas/.kiro/specs/`, `.kiro/specs/platform-reorganization/`.
+Last updated: 2026-07-08 · Cross-references: `saas/.kiro/specs/`, `.kiro/specs/platform-reorganization/`, `ECOD/server/usage.md` (external API guide).
