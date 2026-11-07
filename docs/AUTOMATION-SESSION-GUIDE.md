@@ -77,7 +77,7 @@ BROWSERLESS_TOKEN=408d9b09b90939b78cdfbe714f1059eccaaa5fbf7a1c05c779d8bfcd9f0e65
 
 # LAIE Configuration
 LAIE_API_KEY=8469640326c3a05fcb47fa1277a205607bb8ae3320193a826217d066fabe18c0
-LAIE_DATABASE_URL=postgresql://postgres.bnchmgyybdsklxrumcnd:gZn79UnIYxAKBFys@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres
+LAIE_DATABASE_URL=postgresql://postgres.bnchmgyybdsklxrumcnd:<REDACTED>@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres
 ```
 
 ## Available Actors (Automation Tasks)
