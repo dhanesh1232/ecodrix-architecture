@@ -22,11 +22,7 @@ import { logger } from "@shared/utils/logger";
 
 const log = logger.child({ module: "UsageService(legacy)" });
 
-export type LegacyUsageType =
-  | "whatsapp_msg"
-  | "email_msg"
-  | "ai_token"
-  | "automation_run";
+export type LegacyUsageType = "whatsapp_msg" | "email_msg" | "ai_token" | "automation_run";
 
 interface PairResolution {
   service: string;
@@ -94,28 +90,15 @@ export const UsageService = {
         return true;
       }
 
-      const result = await pgUsage.checkAndIncrement(
-        orgId,
-        service,
-        feature,
-        amount,
-        limit,
-      );
+      const result = await pgUsage.checkAndIncrement(orgId, service, feature, amount, limit);
       return result.allowed;
     } catch (err) {
-      log.error(
-        { err: (err as Error).message, clientCode, type },
-        "consume failed — fail-open",
-      );
+      log.error({ err: (err as Error).message, clientCode, type }, "consume failed — fail-open");
       return true;
     }
   },
 
-  addCredits: async (
-    clientCode: string,
-    type: LegacyUsageType,
-    amount: number,
-  ): Promise<null> => {
+  addCredits: async (clientCode: string, type: LegacyUsageType, amount: number): Promise<null> => {
     log.warn(
       { clientCode, type, amount },
       "addCredits is deprecated and has no effect; configure entitlements via plans/add-ons instead",
@@ -140,23 +123,10 @@ export const UsageService = {
       if (!orgId) return [];
 
       const periodStart = new Date(
-        Date.UTC(
-          new Date().getUTCFullYear(),
-          new Date().getUTCMonth(),
-          1,
-          0,
-          0,
-          0,
-          0,
-        ),
+        Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1, 0, 0, 0, 0),
       );
 
-      const types: LegacyUsageType[] = [
-        "whatsapp_msg",
-        "email_msg",
-        "ai_token",
-        "automation_run",
-      ];
+      const types: LegacyUsageType[] = ["whatsapp_msg", "email_msg", "ai_token", "automation_run"];
 
       const out = await Promise.all(
         types.map(async (type) => {
@@ -166,8 +136,7 @@ export const UsageService = {
             resolveLimit(orgId, service, feature),
           ]);
 
-          const total =
-            limit === "unlimited" ? -1 : typeof limit === "number" ? limit : 0;
+          const total = limit === "unlimited" ? -1 : typeof limit === "number" ? limit : 0;
 
           let status: "active" | "warning" | "exhausted" = "active";
           if (total > 0) {

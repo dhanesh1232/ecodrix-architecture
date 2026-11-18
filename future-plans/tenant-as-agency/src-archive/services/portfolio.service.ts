@@ -46,10 +46,7 @@ interface ClientMetrics {
 const PAGE_SIZE = 100;
 const MAX_PAGES = 500;
 
-async function loadAllLeadsForOrg(
-  adapter: ErixAdapter,
-  orgId: string,
-): Promise<Lead[]> {
+async function loadAllLeadsForOrg(adapter: ErixAdapter, orgId: string): Promise<Lead[]> {
   const all: Lead[] = [];
   let cursor: string | undefined;
   for (let i = 0; i < MAX_PAGES; i++) {
@@ -65,9 +62,7 @@ async function loadAllLeadsForOrg(
   return all;
 }
 
-async function computeMetricsForClient(
-  clientCode: string,
-): Promise<ClientMetrics["metrics"]> {
+async function computeMetricsForClient(clientCode: string): Promise<ClientMetrics["metrics"]> {
   const orgId = await getOrgIdFromClientCode(clientCode.toUpperCase());
   if (!orgId) {
     return {

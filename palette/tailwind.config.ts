@@ -89,86 +89,30 @@ module.exports = {
       /* ── Typography ──────────────────────────────────── */
       fontFamily: {
         display: ["Syne", "system-ui", "-apple-system", "sans-serif"],
-        body: [
-          "Inter",
-          "-apple-system",
-          "BlinkMacSystemFont",
-          "Segoe UI",
-          "Roboto",
-          "sans-serif",
-        ],
-        sans: [
-          "Inter",
-          "-apple-system",
-          "BlinkMacSystemFont",
-          "Segoe UI",
-          "Roboto",
-          "sans-serif",
-        ],
+        body: ["Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "sans-serif"],
+        sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "sans-serif"],
         code: ["JetBrains Mono", "Fira Code", "monospace"],
       },
 
       fontSize: {
-        "display-xl": [
-          "72px",
-          { lineHeight: "1.0", letterSpacing: "-0.025em", fontWeight: "800" },
-        ],
-        "display-lg": [
-          "52px",
-          { lineHeight: "1.05", letterSpacing: "-0.02em", fontWeight: "800" },
-        ],
-        "display-md": [
-          "40px",
-          { lineHeight: "1.1", letterSpacing: "-0.02em", fontWeight: "700" },
-        ],
+        "display-xl": ["72px", { lineHeight: "1.0", letterSpacing: "-0.025em", fontWeight: "800" }],
+        "display-lg": ["52px", { lineHeight: "1.05", letterSpacing: "-0.02em", fontWeight: "800" }],
+        "display-md": ["40px", { lineHeight: "1.1", letterSpacing: "-0.02em", fontWeight: "700" }],
         "display-sm": [
           "32px",
           { lineHeight: "1.15", letterSpacing: "-0.015em", fontWeight: "700" },
         ],
-        "title-lg": [
-          "24px",
-          { lineHeight: "1.3", letterSpacing: "-0.01em", fontWeight: "700" },
-        ],
-        "title-md": [
-          "20px",
-          { lineHeight: "1.4", letterSpacing: "0", fontWeight: "600" },
-        ],
-        "title-sm": [
-          "18px",
-          { lineHeight: "1.4", letterSpacing: "0", fontWeight: "600" },
-        ],
-        label: [
-          "13px",
-          { lineHeight: "1.3", letterSpacing: "0.08em", fontWeight: "700" },
-        ],
-        "body-lg": [
-          "18px",
-          { lineHeight: "1.75", letterSpacing: "0", fontWeight: "400" },
-        ],
-        "body-md": [
-          "16px",
-          { lineHeight: "1.65", letterSpacing: "0", fontWeight: "400" },
-        ],
-        "body-sm": [
-          "14px",
-          { lineHeight: "1.6", letterSpacing: "0", fontWeight: "400" },
-        ],
-        caption: [
-          "12px",
-          { lineHeight: "1.4", letterSpacing: "0.02em", fontWeight: "500" },
-        ],
-        btn: [
-          "14px",
-          { lineHeight: "1.0", letterSpacing: "0.02em", fontWeight: "600" },
-        ],
-        nav: [
-          "14px",
-          { lineHeight: "1.4", letterSpacing: "0.01em", fontWeight: "500" },
-        ],
-        code: [
-          "13px",
-          { lineHeight: "1.6", letterSpacing: "0", fontWeight: "400" },
-        ],
+        "title-lg": ["24px", { lineHeight: "1.3", letterSpacing: "-0.01em", fontWeight: "700" }],
+        "title-md": ["20px", { lineHeight: "1.4", letterSpacing: "0", fontWeight: "600" }],
+        "title-sm": ["18px", { lineHeight: "1.4", letterSpacing: "0", fontWeight: "600" }],
+        label: ["13px", { lineHeight: "1.3", letterSpacing: "0.08em", fontWeight: "700" }],
+        "body-lg": ["18px", { lineHeight: "1.75", letterSpacing: "0", fontWeight: "400" }],
+        "body-md": ["16px", { lineHeight: "1.65", letterSpacing: "0", fontWeight: "400" }],
+        "body-sm": ["14px", { lineHeight: "1.6", letterSpacing: "0", fontWeight: "400" }],
+        caption: ["12px", { lineHeight: "1.4", letterSpacing: "0.02em", fontWeight: "500" }],
+        btn: ["14px", { lineHeight: "1.0", letterSpacing: "0.02em", fontWeight: "600" }],
+        nav: ["14px", { lineHeight: "1.4", letterSpacing: "0.01em", fontWeight: "500" }],
+        code: ["13px", { lineHeight: "1.6", letterSpacing: "0", fontWeight: "400" }],
       },
 
       /* ── Spacing ─────────────────────────────────────── */
@@ -200,12 +144,9 @@ module.exports = {
         card: "0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
         "hover-light": "0 20px 40px rgba(37,99,235,0.12)",
         "hover-dark": "0 20px 40px rgba(0,0,0,0.4)",
-        featured:
-          "0 0 0 4px rgba(37,99,235,0.08), 0 20px 40px rgba(37,99,235,0.1)",
-        "mockup-light":
-          "0 24px 60px rgba(37,99,235,0.1), 0 4px 12px rgba(0,0,0,0.05)",
-        "mockup-dark":
-          "0 24px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(37,99,235,0.15)",
+        featured: "0 0 0 4px rgba(37,99,235,0.08), 0 20px 40px rgba(37,99,235,0.1)",
+        "mockup-light": "0 24px 60px rgba(37,99,235,0.1), 0 4px 12px rgba(0,0,0,0.05)",
+        "mockup-dark": "0 24px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(37,99,235,0.15)",
         "btn-blue": "0 6px 20px rgba(37,99,235,0.35)",
         "btn-purple": "0 6px 20px rgba(124,58,237,0.35)",
         "btn-fire": "0 8px 28px rgba(124,58,237,0.4)",
@@ -282,16 +223,13 @@ module.exports = {
       backgroundImage: {
         "gradient-cosmic": "linear-gradient(135deg, #2563EB, #7C3AED)",
         "gradient-phoenix": "linear-gradient(135deg, #7C3AED, #DC2626)",
-        "gradient-brand":
-          "linear-gradient(135deg, #2563EB 0%, #7C3AED 50%, #DC2626 100%)",
-        "gradient-brand-dark":
-          "linear-gradient(135deg, #1D4ED8 0%, #6D28D9 50%, #B91C1C 100%)",
+        "gradient-brand": "linear-gradient(135deg, #2563EB 0%, #7C3AED 50%, #DC2626 100%)",
+        "gradient-brand-dark": "linear-gradient(135deg, #1D4ED8 0%, #6D28D9 50%, #B91C1C 100%)",
         "gradient-hero-glow":
           "radial-gradient(ellipse 60% 50% at 80% 40%, rgba(37,99,235,0.07) 0%, transparent 70%)",
         "gradient-hero-glow-dark":
           "radial-gradient(ellipse 60% 50% at 80% 40%, rgba(37,99,235,0.1) 0%, transparent 70%)",
-        "gradient-stat-divider":
-          "linear-gradient(to bottom, transparent, #E2E8F0, transparent)",
+        "gradient-stat-divider": "linear-gradient(to bottom, transparent, #E2E8F0, transparent)",
         "gradient-stat-divider-dark":
           "linear-gradient(to bottom, transparent, #1E2D4A, transparent)",
       },
@@ -310,7 +248,7 @@ module.exports = {
 
   plugins: [
     // Gradient text utility
-    function ({ addUtilities }) {
+    ({ addUtilities }) => {
       addUtilities({
         ".text-gradient-cosmic": {
           background: "linear-gradient(135deg, #2563EB, #7C3AED)",
@@ -325,8 +263,7 @@ module.exports = {
           "background-clip": "text",
         },
         ".text-gradient-brand": {
-          background:
-            "linear-gradient(135deg, #2563EB 0%, #7C3AED 50%, #DC2626 100%)",
+          background: "linear-gradient(135deg, #2563EB 0%, #7C3AED 50%, #DC2626 100%)",
           "-webkit-background-clip": "text",
           "-webkit-text-fill-color": "transparent",
           "background-clip": "text",

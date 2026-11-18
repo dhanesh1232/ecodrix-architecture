@@ -28,21 +28,16 @@
 
 import { getErixAdapter } from "@erix/lib/erix-adapter";
 import { getBlueprint } from "@platform/services/admin/blueprints.service";
-import { getOrgIdFromClientCode } from "@shared/lib/org-lookup";
 import { AuditService } from "@platform/services/global/audit.service";
+import { getOrgIdFromClientCode } from "@shared/lib/org-lookup";
 
 export const OrchestratorService = {
-  deployBlueprint: async (
-    clientCode: string,
-    blueprintId: string,
-    performedBy: string,
-  ) => {
+  deployBlueprint: async (clientCode: string, blueprintId: string, performedBy: string) => {
     const blueprint = await getBlueprint(blueprintId);
     if (!blueprint) throw new Error("Blueprint not found");
 
     const orgId = await getOrgIdFromClientCode(clientCode.toUpperCase());
-    if (!orgId)
-      throw new Error(`deployBlueprint: org not found for ${clientCode}`);
+    if (!orgId) throw new Error(`deployBlueprint: org not found for ${clientCode}`);
     const adapter = await getErixAdapter(orgId);
 
     const auditMeta: Record<string, any> = {

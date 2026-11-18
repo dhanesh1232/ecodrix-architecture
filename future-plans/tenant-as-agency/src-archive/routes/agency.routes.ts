@@ -38,8 +38,7 @@ const router = express.Router();
  */
 router.param("clientCode", async (req, _res, next, value) => {
   try {
-    const { resolveOrgByClientCode } =
-      await import("@shared/middleware/tenantResolver");
+    const { resolveOrgByClientCode } = await import("@shared/middleware/tenantResolver");
     const org = await resolveOrgByClientCode(String(value));
     if (org) {
       req.org = org;
@@ -53,49 +52,37 @@ router.param("clientCode", async (req, _res, next, value) => {
 
 // ── BLUEPRINTS ──────────────────────────────────────────────────────────────
 
-router.get(
-  "/blueprints",
-  requirePlatformAdmin(),
-  async (req: Request, res: Response) => {
-    try {
-      const blueprints = await req.platform.admin.blueprints.list();
-      res.json({ success: true, data: blueprints });
-    } catch (err: any) {
-      res.status(500).json({ success: false, message: err.message });
-    }
-  },
-);
+router.get("/blueprints", requirePlatformAdmin(), async (req: Request, res: Response) => {
+  try {
+    const blueprints = await req.platform.admin.blueprints.list();
+    res.json({ success: true, data: blueprints });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
-router.post(
-  "/blueprints",
-  requirePlatformAdmin(),
-  async (req: Request, res: Response) => {
-    try {
-      const blueprint = await req.platform.admin.blueprints.create(req.body);
-      res.status(201).json({ success: true, data: blueprint });
-    } catch (err: any) {
-      res.status(500).json({ success: false, message: err.message });
-    }
-  },
-);
+router.post("/blueprints", requirePlatformAdmin(), async (req: Request, res: Response) => {
+  try {
+    const blueprint = await req.platform.admin.blueprints.create(req.body);
+    res.status(201).json({ success: true, data: blueprint });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
-router.post(
-  "/blueprints/deploy",
-  requirePlatformAdmin(),
-  async (req: Request, res: Response) => {
-    try {
-      const { clientCode, blueprintId } = req.body;
-      const result = await OrchestratorService.deployBlueprint(
-        clientCode,
-        blueprintId,
-        "agency_admin",
-      );
-      res.json({ ...result });
-    } catch (err: any) {
-      res.status(500).json({ success: false, message: err.message });
-    }
-  },
-);
+router.post("/blueprints/deploy", requirePlatformAdmin(), async (req: Request, res: Response) => {
+  try {
+    const { clientCode, blueprintId } = req.body;
+    const result = await OrchestratorService.deployBlueprint(
+      clientCode,
+      blueprintId,
+      "agency_admin",
+    );
+    res.json({ ...result });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 // ── PORTFOLIO INTELLIGENCE ──────────────────────────────────────────────────
 
@@ -104,9 +91,7 @@ router.get(
   requirePlatformAdmin(),
   async (req: Request, res: Response) => {
     try {
-      const stats = await PortfolioService.getAgencyStats(
-        req.params.agencyCode as string,
-      );
+      const stats = await PortfolioService.getAgencyStats(req.params.agencyCode as string);
       res.json({ success: true, data: stats });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
@@ -119,9 +104,7 @@ router.get(
   requirePlatformAdmin(),
   async (req: Request, res: Response) => {
     try {
-      const report = await HealthService.checkPortfolioHealth(
-        req.params.agencyCode as string,
-      );
+      const report = await HealthService.checkPortfolioHealth(req.params.agencyCode as string);
       res.json({ success: true, data: report });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
@@ -131,19 +114,13 @@ router.get(
 
 // ── WEALTH (Usage & Billing) ────────────────────────────────────────────────
 
-router.get(
-  "/usage/:clientCode",
-  requirePlatformAdmin(),
-  async (req: Request, res: Response) => {
-    try {
-      const usage = await UsageService.getUsage(
-        req.params.clientCode as string,
-      );
-      res.json({ success: true, data: usage });
-    } catch (err: any) {
-      res.status(500).json({ success: false, message: err.message });
-    }
-  },
-);
+router.get("/usage/:clientCode", requirePlatformAdmin(), async (req: Request, res: Response) => {
+  try {
+    const usage = await UsageService.getUsage(req.params.clientCode as string);
+    res.json({ success: true, data: usage });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 export default router;

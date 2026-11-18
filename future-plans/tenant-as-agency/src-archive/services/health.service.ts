@@ -28,10 +28,7 @@ export const HealthService = {
         issues: [],
       };
 
-      if (
-        client.whatsapp?.enabled &&
-        client.whatsapp.status === "disconnected"
-      ) {
+      if (client.whatsapp?.enabled && client.whatsapp.status === "disconnected") {
         clientHealth.issues.push({
           type: "whatsapp_disconnect",
           severity: "error",
@@ -66,16 +63,13 @@ export const HealthService = {
 
     const pipelines = pipelineList.length;
     const stages = stageCounts.reduce((sum, s) => sum + s.length, 0);
-    const rules = (
-      await adapter.automationRules.list(orgId, { isActive: true })
-    ).length;
+    const rules = (await adapter.automationRules.list(orgId, { isActive: true })).length;
 
     return {
       clientCode,
       counts: { pipelines, stages, rules },
       isReady: pipelines > 0 && stages > 0,
-      suggestion:
-        pipelines === 0 ? "Deploy a CRM Blueprint to get started." : null,
+      suggestion: pipelines === 0 ? "Deploy a CRM Blueprint to get started." : null,
     };
   },
 };
